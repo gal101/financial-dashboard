@@ -42,6 +42,16 @@
         <div class="sec-title">&#128200; Certificate Turbo / Structurate</div>
         <div class="tbl"><table><thead><tr><th>Simbol <span class="si"></span></th><th>Descriere <span class="si"></span></th><th>Poz. <span class="si"></span></th><th>P.med <span class="si"></span></th><th>P.act <span class="si"></span></th><th>Valoare <span class="si"></span></th><th>P/L <span class="si"></span></th><th>P/L% <span class="si"></span></th></tr></thead><tbody id="tb"></tbody></table></div>
       </div>
+      <div class="sec">
+        <div class="sec-title">&#128065; Watchlist <span style="font-weight:400;font-size:.78rem;color:var(--dim);margin-left:8px">(simboluri urmarite)</span></div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input type="text" id="wl-input" class="srch" style="width:140px" placeholder="Simbol (ex: H2O)" onkeydown="if(event.key==='Enter')wlAdd()">
+          <button class="btn" onclick="wlAdd()">+ Adauga</button>
+        </div>
+        <div class="tbl">
+          <table><thead><tr><th>Simbol</th><th>Pret</th><th>Var%</th><th></th></tr></thead><tbody id="wl-tbody"></tbody></table>
+        </div>
+      </div>
     </div>
     <div class="charts">
       <div class="ch"><h3>&#128202; Alocatie</h3><div class="ch-wrap"><canvas id="ac"></canvas></div></div>
@@ -209,8 +219,9 @@ function fp(s){
 function rp(){
   var btn=document.getElementById('br');if(btn){btn.disabled=true;btn.textContent='...'}
   var syms=[];DATA.holdings.forEach(function(h){if(syms.indexOf(h.simbol)<0)syms.push(h.simbol)});
+  WATCHLIST.forEach(function(s){if(syms.indexOf(s)<0)syms.push(s)});
   var i=0;
-  function next(){if(i>=syms.length){ra();ul();if(btn){btn.disabled=false;btn.textContent='Actualizeaza'}return}
+  function next(){if(i>=syms.length){ra();ul();wlRender();if(btn){btn.disabled=false;btn.textContent='Actualizeaza'}return}
   var s=syms[i++];fp(s).then(function(r){if(r)prices[s]=r;return new Promise(function(res){setTimeout(res,400)})}).then(next)}
   next()
 }
@@ -613,6 +624,68 @@ function openAiAnalysis(simbol, company, price){
   alert('Prompt copiat in clipboard!\n\nPaste in Hermes pentru o analiza detaliata despre '+simbol+':\n\n"'+fullPrompt+'"');
 }
 
+// === WATCHLIST ===
+var WATCHLIST = [];
+
+function wlLoad() {
+  fetch('watchlist.json?_=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      WATCHLIST = data.simbols || [];
+      wlRender();
+    })
+    .catch(function() { WATCHLIST = []; wlRender(); });
+}
+
+function wlSave() {
+  var data = { simbols: WATCHLIST };
+  // Can't write JSON from browser JS — we store in memory and rely on
+  // the user to manage watchlist.json manually or via future backend
+  console.log('Watchlist:', JSON.stringify(data));
+}
+
+function wlAdd() {
+  var input = document.getElementById('wl-input');
+  var s = input.value.trim().toUpperCase();
+  if (!s) return;
+  if (WATCHLIST.indexOf(s) >= 0) {
+    alert('Simbolul ' + s + ' este deja in watchlist.');
+    return;
+  }
+  WATCHLIST.push(s);
+  input.value = '';
+  wlRender();
+}
+
+function wlDelete(simbol) {
+  WATCHLIST = WATCHLIST.filter(function(x) { return x !== simbol; });
+  wlRender();
+}
+
+function wlRender() {
+  var tbody = document.getElementById('wl-tbody');
+  if (!tbody) return;
+
+  var html = '';
+  for (var i = 0; i < WATCHLIST.length; i++) {
+    var s = WATCHLIST[i];
+    var p = prices[s];
+    var priceStr = p ? fmt(p.price, 4) : '-';
+    var chgStr = p ? fmtPct(p.changePct) : '-';
+    var chgCls = p && p.changePct >= 0 ? 'pos' : 'neg';
+    html += '<tr>' +
+      '<td><a href="company.html?symbol=' + s + '" class="sym" style="text-decoration:none">' + s + '</a></td>' +
+      '<td>' + priceStr + '</td>' +
+      '<td class="' + chgCls + '">' + chgStr + '</td>' +
+      '<td><button class="btn" onclick="wlDelete(\'' + s + '\')" style="padding:2px 8px;font-size:.7rem">&#10005;</button></td>' +
+      '</tr>';
+  }
+  if (!WATCHLIST.length) {
+    html = '<tr><td colspan="4" style="text-align:center;color:var(--dim);padding:16px">Niciun simbol in watchlist. Adauga unul mai sus.</td></tr>';
+  }
+  tbody.innerHTML = html;
+}
+
 // === BOOT ===
 (function(){
   fetch('bvb_portfolio.json?_=' + Date.now())
@@ -632,6 +705,8 @@ function openAiAnalysis(simbol, company, price){
     .then(function(r){return r.json()})
     .then(function(data){CD=data})
     .catch(function(){console.log('company_data.json not available')});
+  // Load watchlist
+  wlLoad();
   ums();ul();
   setInterval(ums,60000);
   // auto-refresh live prices after 2s
