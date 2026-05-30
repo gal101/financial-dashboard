@@ -19,12 +19,15 @@ Trei livrabile independente, în ordinea priorității:
 | 3 | **Stiri** | Nimic (link extern Google News) |
 
 **NU intră în v1** (rămân în FEATURES.md ca backlog):
-- Buget overlay + Forward P/E estimat
-- Calendar financiar (necesită scraping BVB.ro)
+- **PE chart istoric** — grafic P/E evolutiv (v2)
+- Buget overlay + Forward P/E estimat (v2)
+- Calendar financiar (v2, necesită scraping BVB.ro)
 - Istoric tranzacții (import CSV)
 - Benchmark BET Index
 - Alerte de preț
 - Chat AI
+
+**Notă pentru v2:** Adăugarea profilului unei companii noi (cu PE istoric, bugete, forward PE) poate deveni un proces semi-manual — un skill de agent care face research pe net, calculează metrici, și populează datele.
 
 ---
 
@@ -89,8 +92,9 @@ Trei livrabile independente, în ordinea priorității:
 #### 1.3 Rezultate Trimestriale
 
 - **Tip:** bar chart — venituri + profit net
-- **Perioadă:** ultimele 8 trimestre
+- **Perioadă:** ultimele 12 trimestre (dacă există)
 - **Culori:** albastru pentru venituri, verde/roșu pentru profit
+- **Scroll:** dacă 12 trimestre nu încap pe ecran, container cu scroll orizontal
 - **Sursă:** `company_data.json` → `companies[simbol].quarterly`
 - **Fallback:** dacă nu există date trimestriale, se afișează „Date indisponibile"
 
