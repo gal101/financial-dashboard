@@ -273,7 +273,7 @@ function renderTable(){
     var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
     var pond=total?val/total*100:0;
     var tr=document.createElement('tr');
-    tr.innerHTML='<td><span class="sym" onclick="showCompany(\''+h.simbol+'\')">'+h.simbol+'</span></td>'+
+    tr.innerHTML='<td><a href="company.html?symbol='+h.simbol+'" class="sym" style="text-decoration:none">'+h.simbol+'</a></td>'+
     '<td><span class="nm">'+h.nume+'</span></td>'+
     '<td>'+h.actiuni.toLocaleString('ro-RO')+'</td>'+
     '<td>'+fmt(h.pret_medie_achizitie_RON,4)+'</td>'+

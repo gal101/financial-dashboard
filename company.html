@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profil Companie - BVB</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="load" id="ld">
+  <div style="text-align:center"><div class="spin" style="margin:0 auto 16px"></div>
+  <div style="color:var(--dim);font-size:.9rem">Se incarca profilul companiei...</div></div>
+</div>
+
+<div class="header">
+  <div>
+    <a href="dashboard.html" style="color:var(--dim);text-decoration:none;font-size:.82rem">&larr; Înapoi la portofoliu</a>
+    <h1 id="ch-sym" style="margin-top:8px">-</h1>
+    <div class="sub" id="ch-name"></div>
+    <div class="tags" id="ch-tags" style="margin-top:8px"></div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:1.6rem;font-weight:700" id="ch-price">-</div>
+    <div style="font-size:.85rem" id="ch-change">-</div>
+    <div style="font-size:.7rem;color:var(--dim);margin-top:4px">RON &middot; BVB</div>
+  </div>
+</div>
+
+<div class="container" id="ch-body">
+  <div id="ch-summary" style="font-size:.82rem;color:var(--dim);line-height:1.6;margin-bottom:20px;max-height:120px;overflow-y:auto"></div>
+
+  <div class="mm-row" id="ch-metrics"></div>
+
+  <!-- Price Chart -->
+  <div class="mc-row">
+    <div class="mc">
+      <h3>&#128200; Evolutie pret</h3>
+      <div style="margin-bottom:8px">
+        <select id="ch-period" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;font-size:.78rem;outline:none" onchange="renderPriceChart()">
+          <option value="1y" selected>1 an</option>
+          <option value="5y">5 ani</option>
+          <option value="3y">3 ani</option>
+          <option value="6mo">6 luni</option>
+          <option value="3mo">3 luni</option>
+          <option value="1mo">1 luna</option>
+          <option value="1wk">1 saptamana</option>
+          <option value="1d">1 zi</option>
+        </select>
+      </div>
+      <div class="mc-wrap tall"><canvas id="ch-price-chart"></canvas></div>
+    </div>
+    <div id="ch-no-chart" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;text-align:center;color:var(--dim)">Nu exista date pentru graficul de pret.</div>
+  </div>
+
+  <!-- Financial Results -->
+  <div id="ch-fin-section" style="display:none;margin-top:24px">
+    <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-bottom:10px">Rezultate financiare trimestriale</div>
+    <div class="mc-row">
+      <div class="mc"><h3>&#128176; Venituri</h3><div class="mc-wrap"><canvas id="ch-rev"></canvas></div></div>
+      <div class="mc"><h3>&#128200; Profit net</h3><div class="mc-wrap"><canvas id="ch-ni"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- News link -->
+  <div style="margin-top:24px">
+    <a id="ch-news" href="#" target="_blank" class="btn" style="text-decoration:none">&#128240; Stiri pe Google News</a>
+  </div>
+
+  <div id="ch-error" style="display:none;text-align:center;padding:60px 20px;color:var(--dim)">
+    <div style="font-size:3rem;margin-bottom:10px">&#128269;</div>
+    <div style="font-size:1.2rem;font-weight:600;margin-bottom:8px">Compania nu a fost gasita</div>
+    <div style="font-size:.85rem" id="ch-error-msg"></div>
+    <a href="dashboard.html" class="btn" style="display:inline-block;margin-top:16px;text-decoration:none">&larr; Înapoi la portofoliu</a>
+  </div>
+</div>
+
+<div class="foot"><p>Profil Companie BVB - Yahoo Finance API</p></div>
+
+<script src="company_profile.js"></script>
+</body>
+</html>
