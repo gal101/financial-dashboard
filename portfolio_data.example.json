@@ -1,0 +1,56 @@
+{
+  "_comment": "EXEMPLU — structura portofoliului cu date ANONIMIZATE. Completeaza cu datele tale reale in bvb_portfolio.json (ignorat de git).",
+  "metadata": {
+    "sursa": "Tradeville CSV export",
+    "valuta": "RON",
+    "data_export": "YYYY",
+    "total_investit_RON": 0,
+    "total_evaluare_RON": 0,
+    "total_profit_pierdere_RON": 0,
+    "return_total_pct": 0,
+    "numar_pozitii": 0,
+    "last_price_update": null
+  },
+  "realized_pnl": {
+    "_comment": "Profit/pierdere realizat(a) din pozitii inchise. Adauga simboluri reale aici.",
+    "EXEMPLU": {
+      "nume": "Nume Companie",
+      "total_buy_RON": 0,
+      "total_sell_RON": 0,
+      "shares_bought": 0,
+      "shares_sold": 0,
+      "realized_loss_RON": 0,
+      "closed_date": "YYYY-MM-DD"
+    },
+    "total_realized_loss_RON": 0
+  },
+  "holdings": [
+    {
+      "simbol": "EXEMPLU",
+      "nume": "Nume Companie",
+      "tip": "actiuni",
+      "actiuni": 0,
+      "pret_medie_achizitie_RON": 0,
+      "pret_actual_RON": 0,
+      "valoare_evaluata_RON": 0,
+      "profit_pierdere_RON": 0,
+      "investitie_initiala_RON": 0,
+      "variatie_pret_pct": 0,
+      "pondere_portofoliu_pct": 0,
+      "pret_updated_at": null
+    },
+    {
+      "simbol": "EXEMPLU_TURBO",
+      "nume": "Nume Produs Structurat",
+      "tip": "struct",
+      "actiuni": 0,
+      "pret_medie_achizitie_RON": 0,
+      "pret_actual_RON": 0,
+      "valoare_evaluata_RON": 0,
+      "profit_pierdere_RON": 0,
+      "investitie_initiala_RON": 0,
+      "variatie_pret_pct": 0,
+      "pondere_portofoliu_pct": 0
+    }
+  ]
+}

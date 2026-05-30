@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portofoliu BVB - Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f1117;--card:#1a1d29;--border:#2a2d3a;--text:#e1e3ea;--dim:#8b8fa3;--green:#22c55e;--red:#ef4444;--accent:#6366f1;--accent-bg:rgba(99,102,241,.15)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;min-height:100vh}
+.header{background:linear-gradient(135deg,#1a1d29,#1e2235);border-bottom:1px solid var(--border);padding:24px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.header h1{font-size:1.5rem;font-weight:700}
+.sub{color:var(--dim);font-size:.82rem;margin-top:2px}
+.last-up{color:var(--dim);font-size:.8rem;text-align:right}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.dot.g{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot.y{background:#eab308}
+.dot.r{background:var(--dim)}
+.container{max-width:1400px;margin:0 auto;padding:24px 32px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.kpi-label{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-bottom:6px}
+.kpi-val{font-size:1.6rem;font-weight:700}
+.kpi-sub{font-size:.8rem;margin-top:4px}
+.kpi-sub.sub{font-size:.72rem;color:var(--dim);margin-top:2px}
+.pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--dim)}
+.grid{display:grid;grid-template-columns:1fr 400px;gap:24px;align-items:start}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}}
+.tbl{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.tbl-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.tbl-head h2{font-size:1rem;font-weight:600}
+.srch{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 12px;font-size:.82rem;width:180px;outline:none}
+.srch:focus{border-color:var(--accent)}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:right;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);background:rgba(255,255,255,.02);border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s,background .15s;position:relative}
+th:hover{color:var(--text);background:rgba(99,102,241,.08)}
+th:first-child,th:nth-child(2){text-align:left}
+th .si{font-size:.65rem;margin-left:3px;opacity:.4;display:inline-block;transition:opacity .15s}
+th .si.a{opacity:1;color:var(--accent)}
+tr{border-bottom:1px solid rgba(42,45,58,.5);transition:background .15s}
+tr:hover{background:rgba(99,102,241,.04)}
+td{padding:11px 14px;text-align:right;font-size:.85rem;white-space:nowrap}
+td:first-child,td:nth-child(2){text-align:left}
+.sym{font-weight:700;color:var(--accent);cursor:pointer}
+.sym:hover{text-decoration:underline}
+.nm{color:var(--dim);font-size:.8rem}
+.sec{margin-top:24px}
+.sec-title{font-size:1.1rem;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.charts{display:flex;flex-direction:column;gap:20px}
+.ch{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px}
+.ch h3{font-size:.9rem;font-weight:600;margin-bottom:12px;color:var(--dim)}
+.ch-wrap{position:relative;height:220px}
+.btn{background:var(--accent-bg);color:var(--accent);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:.8rem}
+.btn:hover{background:rgba(99,102,241,.25)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.load{position:fixed;inset:0;background:rgba(15,17,23,.9);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
+.spin{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.mkt{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:500}
+.mkt.o{background:rgba(34,197,94,.1);color:var(--green)}
+.mkt.c{background:rgba(239,68,68,.1);color:var(--red)}
+.foot{text-align:center;padding:32px;color:var(--dim);font-size:.75rem}
+/* === COMPANY MODAL === */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;overflow-y:auto;padding:20px;backdrop-filter:blur(4px)}
+.modal{background:var(--bg);border:1px solid var(--border);border-radius:16px;max-width:1100px;margin:20px auto;position:relative;overflow:hidden}
+.modal-close{position:absolute;top:16px;right:20px;background:none;border:none;color:var(--dim);font-size:1.5rem;cursor:pointer;z-index:10;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.modal-close:hover{background:var(--card);color:var(--text)}
+.modal-hdr{background:linear-gradient(135deg,#1a1d29,#1e2235);border-bottom:1px solid var(--border);padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-start}
+.modal-hdr-l{flex:1;min-width:0}
+.modal-hdr h2{font-size:1.4rem;font-weight:700;margin-bottom:4px}
+.modal-hdr .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{background:var(--accent-bg);color:var(--accent);border:1px solid rgba(99,102,241,.25);border-radius:6px;padding:2px 10px;font-size:.72rem;font-weight:500}
+.tag.g{background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.25)}
+.tag.y{background:rgba(234,179,8,.1);color:#eab308;border-color:rgba(234,179,8,.25)}
+.modal-body{padding:24px 32px 32px}
+.modal-summary{font-size:.82rem;color:var(--dim);line-height:1.6;margin-bottom:20px;max-height:80px;overflow-y:auto}
+.mm-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:24px}
+.mm-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px}
+.mm-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-bottom:3px}
+.mm-val{font-size:1rem;font-weight:600}
+.mm-sub{font-size:.7rem;color:var(--dim);margin-top:1px}
+.mc-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:800px){.mc-row{grid-template-columns:1fr}}
+.mc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.mc h3{font-size:.82rem;font-weight:600;color:var(--dim);margin-bottom:10px}
+.mc-wrap{position:relative;height:200px}
+.mc-wrap.tall{height:300px}
+.modal-btns{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+.ai-btn{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:.85rem;font-weight:600;transition:opacity .15s;display:flex;align-items:center;gap:6px}
+.ai-btn:hover{opacity:.85}
+</style>
+</head>
+<body>
+
+<div class="load" id="ld" style="display:none">
+  <div style="text-align:center"><div class="spin" style="margin:0 auto 16px"></div>
+  <div style="color:var(--dim);font-size:.9rem">Se incarca...</div></div>
+</div>
+
+<div class="header">
+  <div><h1>&#128202; Portofoliu BVB</h1><div class="sub">Bursa de Valori Bucuresti - actualizat in timp real</div></div>
+  <div class="last-up">
+    <div style="margin-bottom:6px"><span id="ms" class="mkt c"><span class="dot r" id="md"></span><span id="mt">Se verifica...</span></span></div>
+    <div>Ultima act.: <strong id="lu">--</strong></div>
+    <div style="margin-top:6px"><button class="btn" id="br" onclick="rp()">&#128260; Actualizeaza preturile</button></div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-label">Valoare portofoliu</div><div class="kpi-val" id="kv">-</div><div class="kpi-sub" id="kvr">- RON</div></div>
+    <div class="kpi"><div class="kpi-label">Total investit</div><div class="kpi-val neu" id="ki">-</div><div class="kpi-sub">RON</div><div class="kpi-sub sub" id="kit"></div></div>
+    <div class="kpi"><div class="kpi-label">Profit / Pierdere</div><div class="kpi-val" id="kp">-</div><div class="kpi-sub" id="kpp">-</div></div>
+    <div class="kpi"><div class="kpi-label">Pozitii deschise</div><div class="kpi-val neu" id="kn">-</div><div class="kpi-sub">actiuni</div></div>
+    <div class="kpi"><div class="kpi-label">P/L Real (incl. realizat)</div><div class="kpi-val" id="krp">-</div><div class="kpi-sub">profit real</div><div class="kpi-sub sub" id="krpr"></div></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="tbl">
+        <div class="tbl-head"><h2>&#127919; Actiuni</h2><input class="srch" type="text" placeholder="Cauta..." id="si" oninput="ft()"/></div>
+        <table><thead><tr><th>Simbol <span class="si"></span></th><th>Companie <span class="si"></span></th><th>Act. <span class="si"></span></th><th>P.med <span class="si"></span></th><th>P.act <span class="si"></span></th><th>Var% <span class="si"></span></th><th>Valoare <span class="si"></span></th><th>P/L <span class="si"></span></th><th>P/L% <span class="si"></span></th><th>Pond <span class="si"></span></th></tr></thead><tbody id="sb"></tbody></table>
+      </div>
+      <div class="sec">
+        <div class="sec-title">&#128200; Certificate Turbo / Structurate</div>
+        <div class="tbl"><table><thead><tr><th>Simbol <span class="si"></span></th><th>Descriere <span class="si"></span></th><th>Poz. <span class="si"></span></th><th>P.med <span class="si"></span></th><th>P.act <span class="si"></span></th><th>Valoare <span class="si"></span></th><th>P/L <span class="si"></span></th><th>P/L% <span class="si"></span></th></tr></thead><tbody id="tb"></tbody></table></div>
+      </div>
+    </div>
+    <div class="charts">
+      <div class="ch"><h3>&#128202; Alocatie</h3><div class="ch-wrap"><canvas id="ac"></canvas></div></div>
+      <div class="ch"><h3>&#128176; P/L per pozitie</h3><div class="ch-wrap"><canvas id="pc"></canvas></div></div>
+      <div class="ch"><h3>&#127919; Distributie tip</h3><div class="ch-wrap" style="height:200px"><canvas id="tc"></canvas></div></div>
+    </div>
+  </div>
+</div>
+<div class="foot"><p>Portofoliu BVB - Yahoo Finance API - Server UTC</p><p>BVB: Luni-Vineri 10:00-18:30 EEST</p></div>
+
+<!-- === COMPANY DETAIL MODAL === -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div class="modal-hdr">
+      <div class="modal-hdr-l">
+        <h2 id="m-sym">-</h2>
+        <div id="m-name" style="font-size:.9rem;color:var(--dim)">-</div>
+        <div class="tags" id="m-tags"></div>
+      </div>
+      <div id="m-price-box" style="text-align:right">
+        <div id="m-price" style="font-size:1.6rem;font-weight:700">-</div>
+        <div id="m-change" style="font-size:.85rem">-</div>
+      </div>
+    </div>
+    <div class="modal-body" id="m-body">
+      <div id="m-summary" class="modal-summary"></div>
+      <div class="mm-row" id="m-metrics"></div>
+      <div class="mc-row">
+        <div class="mc"><h3>&#128200; Evolutie pret (1 an)</h3><div class="mc-wrap tall"><canvas id="mc-price"></canvas></div></div>
+        <div class="mc"><h3>&#128200; Volum tranzactionat</h3><div class="mc-wrap tall"><canvas id="mc-vol"></canvas></div></div>
+      </div>
+      <div id="m-fin-section" style="display:none">
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:16px 0 10px">Rezultate financiare</div>
+        <div class="mc-row">
+          <div class="mc"><h3>&#128176; Venituri trimestriale</h3><div class="mc-wrap"><canvas id="mc-rev"></canvas></div></div>
+          <div class="mc"><h3>&#128200; Profit net trimestrial</h3><div class="mc-wrap"><canvas id="mc-ni"></canvas></div></div>
+        </div>
+        <div class="mc-row">
+          <div class="mc"><h3>EPS pe trimestru</h3><div class="mc-wrap"><canvas id="mc-eps"></canvas></div></div>
+          <div class="mc"><h3>Venituri anuale</h3><div class="mc-wrap"><canvas id="mc-ann-rev"></canvas></div></div>
+        </div>
+      </div>
+      <div id="m-news-section">
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:16px 0 10px">Stiri recente</div>
+        <div id="m-news" style="color:var(--dim);font-size:.85rem;padding:12px;text-align:center">Se incarca stirile...</div>
+      </div>
+      <div class="modal-btns">
+        <a id="m-yahoo-link" href="#" target="_blank" class="btn" style="text-decoration:none">Deschide pe Yahoo Finance</a>
+        <button class="ai-btn" id="m-ai-btn">&#129302; Analizeaza cu AI</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === PORTFOLIO DATA ===
+var DATA=null;
+
+var STOCKS=[];
+var TURBO=[];
+var prices={};
+var ac,pc,tc;
+
+// === SORT ===
+var sortStocks={col:null,dir:null},sortTurbo={col:null,dir:null};
+var STOCKS_ORIG=[],TURBO_ORIG=[];
+
+function _skStocks(h,ci){
+  var p=prices[h.simbol];var cp=p?p.price:h.pret_actual_RON;
+  var val=h.actiuni*cp;var pl=val-h.investitie_initiala_RON;
+  var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
+  var total=totalVal();var pond=total?val/total*100:0;
+  var chg=p?p.chg:h.variatie_pret_pct;
+  switch(ci){
+    case 0:return(h.simbol||'').toLowerCase();
+    case 1:return(h.nume||'').toLowerCase();
+    case 2:return h.actiuni;
+    case 3:return h.pret_medie_achizitie_RON;
+    case 4:return cp;
+    case 5:return chg;
+    case 6:return val;
+    case 7:return pl;
+    case 8:return plp;
+    case 9:return pond;
+  }
+  return 0;
+}
+
+function _skTurbo(h,ci){
+  var p=prices[h.simbol];var cp=p?p.price:h.pret_actual_RON;
+  var val=h.actiuni*cp;var pl=val-h.investitie_initiala_RON;
+  var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
+  switch(ci){
+    case 0:return(h.simbol||'').toLowerCase();
+    case 1:return(h.nume||'').toLowerCase();
+    case 2:return h.actiuni;
+    case 3:return h.pret_medie_achizitie_RON;
+    case 4:return cp;
+    case 5:return val;
+    case 6:return pl;
+    case 7:return plp;
+  }
+  return 0;
+}
+
+function _doSort(tid){
+  var st=tid==='sb'?sortStocks:sortTurbo;
+  var arr=tid==='sb'?STOCKS:TURBO;
+  var orig=tid==='sb'?STOCKS_ORIG:TURBO_ORIG;
+  var keyFn=tid==='sb'?_skStocks:_skTurbo;
+  var maxCols=tid==='sb'?10:8;
+  if(!st||st.col===null||st.col>=maxCols){
+    if(orig&&orig.length)for(var i=0;i<orig.length;i++)arr[i]=orig[i];
+  }else{
+    arr.sort(function(a,b){
+      var va=keyFn(a,st.col),vb=keyFn(b,st.col);
+      if(va===null||va===undefined)va=0;
+      if(vb===null||vb===undefined)vb=0;
+      if(typeof va==='string'){va=va.toLowerCase();vb=(''+vb).toLowerCase();}
+      if(va<vb)return st.dir==='asc'?-1:1;
+      if(va>vb)return st.dir==='asc'?1:-1;
+      return 0;
+    });
+  }
+  var ths=document.getElementById(tid).closest('table').querySelectorAll('thead th');
+  ths.forEach(function(th,i){
+    var si=th.querySelector('.si');
+    if(si){
+      if(st&&st.col===i&&st.dir){si.textContent=st.dir==='asc'?' \u25B2':' \u25BC';si.className='si a';}
+      else{si.textContent='';si.className='si';}
+    }
+  });
+}
+
+function _hdrClick(e){
+  var th=e.target.closest('th');if(!th)return;
+  var tbody=th.closest('table').querySelector('tbody');if(!tbody)return;
+  var tid=tbody.id;if(tid!=='sb'&&tid!=='tb')return;
+  var st=tid==='sb'?sortStocks:sortTurbo;
+  var ci=Array.prototype.indexOf.call(th.parentNode.children,th);
+  if(st.col===ci){if(!st.dir)st.dir='asc';else if(st.dir==='asc')st.dir='desc';else{st.col=null;st.dir=null;}}
+  else{st.col=ci;st.dir='asc';}
+  _doSort(tid);
+  if(tid==='sb')renderTable();else renderTurbo();
+}
+
+// === HELPERS ===
+function fmt(n,d){if(n===null||n===undefined||isNaN(n))return'-';return Number(n).toLocaleString('ro-RO',{minimumFractionDigits:d||2,maximumFractionDigits:d||2})}
+function pnl(c){return c>0?'pos':c<0?'neg':'neu'}
+function totalVal(){var a=0;DATA.holdings.forEach(function(h){a+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});return a}
+
+// === YAHOO FINANCE ===
+var YB='https://query1.finance.yahoo.com/v8/finance/chart/';
+function ys(s){if(s.indexOf('EBTLV')===0)return null;return s+'.RO'}
+function fp(s){
+  var y=ys(s);if(!y)return Promise.resolve(null);
+  var ctrl=new AbortController();
+  var tid=setTimeout(function(){ctrl.abort()},6000);
+  return fetch(YB+y+'?interval=1d&range=5d',{signal:ctrl.signal}).then(function(r){clearTimeout(tid);if(!r.ok)throw r.status;return r.json()}).
+  then(function(d){var m=d.chart.result;if(!m||!m[0])return null;var meta=m[0].meta;var p=meta.regularMarketPrice;if(!p)return null;var prev=meta.chartPreviousClose||meta.previousClose;return {price:Math.round(p*10000)/10000,chg:Math.round(((p-prev)/prev*100)*100)/100}}).
+  catch(function(){return null})
+}
+
+function rp(){
+  var btn=document.getElementById('br');if(btn){btn.disabled=true;btn.textContent='...'}
+  var syms=[];DATA.holdings.forEach(function(h){if(syms.indexOf(h.simbol)<0)syms.push(h.simbol)});
+  var i=0;
+  function next(){if(i>=syms.length){ra();ul();if(btn){btn.disabled=false;btn.textContent='Actualizeaza'}return}
+  var s=syms[i++];fp(s).then(function(r){if(r)prices[s]=r;return new Promise(function(res){setTimeout(res,400)})}).then(next)}
+  next()
+}
+
+function ul(){
+  var now=new Date();var eest=new Date(now.getTime()+2*3600000);
+  document.getElementById('lu').textContent=eest.toISOString().replace('T',' ').substring(0,19)+' EEST'
+}
+
+function ums(){
+  var n=new Date();var h=n.getUTCHours();var m=n.getUTCMinutes();var d=n.getUTCDay();
+  var wd=d>=1&&d<=5;var op=wd&&h+m/60>=8&&h+m/60<16.5;
+  var b=document.getElementById('ms');var dot=document.getElementById('md');var t=document.getElementById('mt');
+  if(op){b.className='mkt o';dot.className='dot g';t.textContent='Piata deschisa'}else{b.className='mkt c';dot.className='dot y';t.textContent='Piata inchisa'}
+}
+
+// === RENDER ===
+function ra(){
+  var all=STOCKS.concat(TURBO);
+  var invested=0,total=0;
+  all.forEach(function(h){invested+=h.investitie_initiala_RON;total+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
+  var pnlv=total-invested;
+  var pnlPct=invested?pnlv/invested*100:0;
+  document.getElementById('kv').textContent=fmt(total)+' RON';
+  document.getElementById('kvr').textContent=fmt(total,2)+' RON';
+  document.getElementById('ki').textContent=fmt(invested)+' RON';
+  document.getElementById('kp').textContent=(pnlv>=0?'+':'')+fmt(pnlv)+' RON';
+  document.getElementById('kp').className='kpi-val '+pnl(pnlv);
+  document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
+  document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
+  document.getElementById('kn').textContent=STOCKS.length;
+  // Real P/L = unrealized + realized
+  var rpnl=0;
+  if(DATA.realized_pnl&&DATA.realized_pnl.total_realized_loss_RON){
+    rpnl=DATA.realized_pnl.total_realized_loss_RON;
+  }
+  var realPnl=pnlv+rpnl;
+  // Total buzunar = invested + |pierdere realizata| (banii recirculați sunt deja în invested)
+  var totalBuzunar=invested+(-rpnl);
+  var realPct=totalBuzunar?realPnl/totalBuzunar*100:0;
+  var rpel=document.getElementById('krp');
+  if(rpel){rpel.textContent=(realPnl>=0?'+':'')+fmt(realPnl)+' RON';rpel.className='kpi-val '+pnl(realPnl)}
+  var krprEl=document.getElementById('krpr');
+  if(krprEl){krprEl.textContent='return: '+(realPct>=0?'+':'')+fmt(realPct)+'%'}
+  // Investitie totala sub Total investit
+  var kitEl=document.getElementById('kit');
+  if(kitEl&&rpnl){kitEl.textContent='incl. pierdere: '+fmt(totalBuzunar,2)+' RON'}
+  if(sortStocks.col!==null)_doSort('sb');
+  if(sortTurbo.col!==null)_doSort('tb');
+  renderTable();renderTurbo();updateCharts();
+}
+
+function renderTable(){
+  var tbody=document.getElementById('sb');tbody.innerHTML='';
+  var total=totalVal();
+  STOCKS.forEach(function(h){
+    var p=prices[h.simbol];var cp=p?p.price:h.pret_actual_RON;
+    var chg=p?p.chg:h.variatie_pret_pct;
+    var val=h.actiuni*cp;var pl=val-h.investitie_initiala_RON;
+    var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
+    var pond=total?val/total*100:0;
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><span class="sym" onclick="showCompany(\''+h.simbol+'\')">'+h.simbol+'</span></td>'+
+    '<td><span class="nm">'+h.nume+'</span></td>'+
+    '<td>'+h.actiuni.toLocaleString('ro-RO')+'</td>'+
+    '<td>'+fmt(h.pret_medie_achizitie_RON,4)+'</td>'+
+    '<td><strong>'+fmt(cp,4)+'</strong></td>'+
+    '<td class="'+pnl(chg)+'">'+(chg>=0?'+':'')+fmt(chg)+'%</td>'+
+    '<td>'+fmt(val)+'</td>'+
+    '<td class="'+pnl(pl)+'"><strong>'+(pl>=0?'+':'')+fmt(pl)+'</strong></td>'+
+    '<td class="'+pnl(plp)+'">'+(plp>=0?'+':'')+fmt(plp)+'%</td>'+
+    '<td>'+fmt(pond,1)+'%</td>';
+    tbody.appendChild(tr)
+  })
+}
+
+function renderTurbo(){
+  var tbody=document.getElementById('tb');tbody.innerHTML='';
+  if(TURBO.length===0){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:16px">Niciun instrument structurat</td></tr>';return}
+  TURBO.forEach(function(h){
+    var p=prices[h.simbol];var cp=p?p.price:h.pret_actual_RON;
+    var val=h.actiuni*cp;var pl=val-h.investitie_initiala_RON;
+    var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><span class="sym">'+h.simbol+'</span></td>'+
+    '<td><span class="nm">'+h.nume+'</span></td>'+
+    '<td>'+h.actiuni+'</td>'+
+    '<td>'+fmt(h.pret_medie_achizitie_RON,4)+'</td>'+
+    '<td>'+fmt(cp,4)+'</td>'+
+    '<td>'+fmt(val)+'</td>'+
+    '<td class="'+pnl(pl)+'">'+(pl>=0?'+':'')+fmt(pl)+'</td>'+
+    '<td class="'+pnl(plp)+'">'+(plp>=0?'+':'')+fmt(plp)+'%</td>';
+    tbody.appendChild(tr)
+  })
+}
+
+function ft(){var q=document.getElementById('si').value.toLowerCase();document.querySelectorAll('#sb tr').forEach(function(tr){tr.style.display=tr.textContent.toLowerCase().indexOf(q)>=0?'':'none'})}
+
+// === CHARTS ===
+var COLORS=['#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#8b5cf6','#14b8a6'];
+
+function initCharts(){
+  var all=STOCKS.concat(TURBO);
+  ac=new Chart(document.getElementById('ac'),{type:'doughnut',data:{labels:all.map(function(h){return h.simbol}),datasets:[{data:all.map(function(h){return h.actiuni*h.pret_actual_RON}),backgroundColor:COLORS.slice(0,all.length),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#8b8fa3',font:{size:10},padding:10,usePointStyle:true}}},cutout:'60%'}});
+  var pnlData=all.map(function(h){return h.actiuni*h.pret_actual_RON-h.investitie_initiala_RON});
+  pc=new Chart(document.getElementById('pc'),{type:'bar',data:{labels:all.map(function(h){return h.simbol}),datasets:[{label:'P/L (RON)',data:pnlData,backgroundColor:pnlData.map(function(v){return v>=0?'rgba(34,197,94,.7)':'rgba(239,68,68,.7)'}),borderColor:pnlData.map(function(v){return v>=0?'#22c55e':'#ef4444'}),borderWidth:1,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b8fa3',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmt(v)+' L'}},grid:{color:'rgba(42,45,58,.5)'}}}}});
+  var sv=0,tv=0;STOCKS.forEach(function(h,i){sv+=h.actiuni*h.pret_actual_RON});TURBO.forEach(function(h,i){tv+=h.actiuni*h.pret_actual_RON});
+  tc=new Chart(document.getElementById('tc'),{type:'pie',data:{labels:['Actiuni','Structurate'],datasets:[{data:[sv,tv],backgroundColor:['#6366f1','#f59e0b'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#8b8fa3',font:{size:10},usePointStyle:true}}}}})
+}
+
+function updateCharts(){
+  if(!ac)return;
+  var all=STOCKS.concat(TURBO);
+  var vals=all.map(function(h){return h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
+  ac.data.datasets[0].data=vals;ac.update('none');
+  var pd=all.map(function(h){return vals[all.indexOf(h)]-h.investitie_initiala_RON});
+  pc.data.datasets[0].data=pd;
+  pc.data.datasets[0].backgroundColor=pd.map(function(v){return v>=0?'rgba(34,197,94,.7)':'rgba(239,68,68,.7)'});
+  pc.data.datasets[0].borderColor=pd.map(function(v){return v>=0?'#22c55e':'#ef4444'});
+  pc.update('none');
+  var sv=0,tv=0;STOCKS.forEach(function(h,i){sv+=vals[i]});TURBO.forEach(function(h,i){tv+=vals[STOCKS.length+i]});
+  tc.data.datasets[0].data=[sv,tv];tc.update('none');
+  // update KPI
+  var invested=0,total=0;
+  all.forEach(function(h){invested+=h.investitie_initiala_RON;total+=vals[all.indexOf(h)]});
+  var pnlv=total-invested;var pnlPct=invested?pnlv/invested*100:0;
+  document.getElementById('kp').textContent=(pnlv>=0?'+':'')+fmt(pnlv)+' RON';
+  document.getElementById('kp').className='kpi-val '+pnl(pnlv);
+  document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
+  document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
+  document.getElementById('kv').textContent=fmt(total)+' RON';
+  document.getElementById('kvr').textContent=fmt(total,2)+' RON';
+}
+
+// === COMPANY MODAL ===
+var CD=null; // company data cache
+var mcCharts={};
+
+function closeModal(e){
+  if(e&&e.target!==document.getElementById('modal'))return;
+  document.getElementById('modal').style.display='none';
+  // Destroy charts to free memory
+  Object.keys(mcCharts).forEach(function(k){if(mcCharts[k]){mcCharts[k].destroy();delete mcCharts[k]}});
+}
+
+function fmtLarge(n){
+  if(n===null||n===undefined||isNaN(n))return'-';
+  var abs=Math.abs(n);
+  if(abs>=1e9)return(n/1e9).toFixed(2)+' mld';
+  if(abs>=1e6)return(n/1e6).toFixed(2)+' mil';
+  if(abs>=1e3)return(n/1e3).toFixed(1)+' K';
+  return Number(n).toLocaleString('ro-RO',{maximumFractionDigits:2});
+}
+
+function fmtPct(n){if(n===null||n===undefined||isNaN(n))return'-';return(n>=0?'+':'')+Number(n*100).toFixed(2)+'%'}
+function fmtPctRaw(n){if(n===null||n===undefined||isNaN(n))return'-';return(n>=0?'+':'')+Number(n).toFixed(2)+'%'}
+
+function showCompany(simbol){
+  if(!CD)return;
+  var company=CD.companies[simbol];
+  if(!company){alert('Nu exista date pentru '+simbol);return}
+
+  // Find portfolio position
+  var pos=null;
+  DATA.holdings.forEach(function(h){if(h.simbol===simbol)pos=h});
+  var price=pos?prices[simbol]||{price:pos.pret_actual_RON,chg:pos.variatie_pret_pct}:null;
+
+  // === HEADER ===
+  document.getElementById('m-sym').textContent=simbol;
+  document.getElementById('m-name').textContent=company.nume;
+  var tagsEl=document.getElementById('m-tags');tagsEl.innerHTML='';
+  if(company.metrics.sector){var t=document.createElement('span');t.className='tag';t.textContent=company.metrics.sector;tagsEl.appendChild(t)}
+  if(company.metrics.industry){var t=document.createElement('span');t.className='tag y';t.textContent=company.metrics.industry;tagsEl.appendChild(t)}
+  if(pos){var t=document.createElement('span');t.className='tag g';t.textContent=pos.tip==='actiuni'?'Actiune':'Structurat';tagsEl.appendChild(t)}
+  if(price){
+    document.getElementById('m-price').textContent=fmt(price.price,4)+' RON';
+    var chgEl=document.getElementById('m-change');
+    chgEl.textContent=(price.chg>=0?'+':'')+fmt(price.chg,2)+'%';
+    chgEl.className=price.chg>=0?'pos':'neg';
+  }else{document.getElementById('m-price').textContent='-';document.getElementById('m-change').textContent='-'}
+
+  // === SUMMARY ===
+  var summaryEl=document.getElementById('m-summary');
+  if(company.metrics.longBusinessSummary){
+    summaryEl.textContent=company.metrics.longBusinessSummary;
+    summaryEl.style.display='block';
+  }else{summaryEl.style.display='none'}
+
+  // === METRICS ===
+  var m=company.metrics;
+  var metricsHtml='';
+  var mItems=[
+    {v:m.marketCap,l:'Market Cap',f:fmtLarge,s:'RON'},
+    {v:m.trailingPE,l:'P/E (TTM)',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
+    {v:m.forwardPE,l:'P/E (forward)',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
+    {v:m.priceToBook,l:'P/B',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
+    {v:m.dividendYield,l:'Div. Yield',f:function(n){return n?n.toFixed(2):'-'},s:'%'},
+    {v:m.beta,l:'Beta',f:function(n){return n?n.toFixed(2):'-'},s:''},
+    {v:m.profitMargins,l:'Marja profit',f:fmtPct,s:''},
+    {v:m.returnOnEquity,l:'ROE',f:fmtPct,s:''},
+    {v:m.returnOnAssets,l:'ROA',f:fmtPct,s:''},
+    {v:m.revenueGrowth,l:'Crestere venit',f:fmtPct,s:''},
+    {v:m.earningsGrowth,l:'Crestere profit',f:fmtPct,s:''},
+    {v:m.priceToSalesTrailing12Months,l:'P/S',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
+    {v:m.debtToEquity,l:'D/E',f:function(n){return n?n.toFixed(1):'-'},s:''},
+    {v:m.freeCashflow,l:'Free Cash Flow',f:fmtLarge,s:'RON'},
+  ];
+  mItems.forEach(function(item){
+    if(item.v!==null&&item.v!==undefined&&item.v!==0){
+      var val=item.f(item.v);
+      metricsHtml+='<div class="mm-item"><div class="mm-label">'+item.l+'</div><div class="mm-val">'+val+'</div>'+(item.s?'<div class="mm-sub">'+item.s+'</div>':'')+'</div>';
+    }
+  });
+  document.getElementById('m-metrics').innerHTML=metricsHtml;
+
+  // === PRICE HISTORY CHART ===
+  renderPriceChart(company);
+
+  // === FINANCIALS ===
+  var hasFin=company.quarterly&&company.quarterly.length>0;
+  document.getElementById('m-fin-section').style.display=hasFin?'block':'none';
+  if(hasFin){
+    renderQuarterlyCharts(company);
+    renderAnnualCharts(company);
+  }
+
+  // === NEWS ===
+  renderNews(simbol,company.nume);
+
+  // === BUTTONS ===
+  var yahooSym=simbol+'.RO';
+  document.getElementById('m-yahoo-link').href='https://finance.yahoo.com/quote/'+yahooSym;
+  document.getElementById('m-ai-btn').onclick=function(){openAiAnalysis(simbol,company,price)};
+
+  // === SHOW ===
+  document.getElementById('modal').style.display='block';
+}
+
+function renderPriceChart(company){
+  var ph=company.price_history;
+  if(!ph||ph.length<2){
+    document.getElementById('mc-price').parentNode.parentNode.style.display='none';
+    document.getElementById('mc-vol').parentNode.parentNode.style.display='none';
+    return;
+  }
+  document.getElementById('mc-price').parentNode.parentNode.style.display='block';
+  document.getElementById('mc-vol').parentNode.parentNode.style.display='block';
+
+  var labels=ph.map(function(p){var d=new Date(p.date);return d.toLocaleDateString('ro-RO',{day:'2-digit',month:'short'})});
+  var prices=ph.map(function(p){return p.close});
+  var volumes=ph.map(function(p){return p.volume});
+
+  // Price chart
+  if(mcCharts.price)mcCharts.price.destroy();
+  mcCharts.price=new Chart(document.getElementById('mc-price'),{
+    type:'line',data:{labels:labels,datasets:[{
+      label:'Pret RON',data:prices,borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.1)',
+      fill:true,borderWidth:2,pointRadius:0,tension:.1
+    }]},options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmt(ctx.parsed.y,4)+' RON'}}}},
+      scales:{x:{ticks:{color:'#8b8fa3',font:{size:9},maxTicksLimit:15},grid:{display:false}},
+              y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmt(v,2)}},grid:{color:'rgba(42,45,58,.5)'}}}
+    }
+  });
+
+  // Volume chart
+  if(mcCharts.vol)mcCharts.vol.destroy();
+  mcCharts.vol=new Chart(document.getElementById('mc-vol'),{
+    type:'bar',data:{labels:labels,datasets:[{
+      label:'Volum',data:volumes,backgroundColor:'rgba(99,102,241,.3)',borderWidth:0,borderRadius:2
+    }]},options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){return Number(ctx.parsed.y).toLocaleString('ro-RO')+' act.'}}}},
+      scales:{x:{ticks:{color:'#8b8fa3',font:{size:9},maxTicksLimit:15},grid:{display:false}},
+              y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmtLarge(v)}},grid:{color:'rgba(42,45,58,.5)'}}}
+    }
+  });
+}
+
+function renderQuarterlyCharts(company){
+  var q=company.quarterly;
+  if(!q||q.length<2)return;
+  // Sort by date ascending
+  q.sort(function(a,b){return new Date(a.date)-new Date(b.date)});
+
+  var labels=q.map(function(qi){
+    var d=new Date(qi.date);
+    return d.toLocaleDateString('ro-RO',{month:'short',year:'2-digit'});
+  });
+
+  // Revenue
+  var revenues=q.map(function(qi){return qi.items['Total Revenue']||null});
+  if(revenues.some(function(v){return v!==null})){
+    if(mcCharts.rev)mcCharts.rev.destroy();
+    var revData=revenues.map(function(v){return v||0});
+    mcCharts.rev=new Chart(document.getElementById('mc-rev'),{
+      type:'bar',data:{labels:labels,datasets:[{
+        label:'Venituri RON',data:revData,backgroundColor:'rgba(99,102,241,.6)',borderRadius:4
+      }]},options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmtLarge(ctx.parsed.y)+' RON'}}}},
+        scales:{x:{ticks:{color:'#8b8fa3',font:{size:9}},grid:{display:false}},
+                y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmtLarge(v)}},grid:{color:'rgba(42,45,58,.5)'}}}
+      }
+    });
+  }
+
+  // Net Income
+  var netIncomes=q.map(function(qi){return qi.items['Net Income']||null});
+  if(netIncomes.some(function(v){return v!==null})){
+    if(mcCharts.ni)mcCharts.ni.destroy();
+    var niData=netIncomes.map(function(v){return v||0});
+    var niColors=niData.map(function(v){return v>=0?'rgba(34,197,94,.6)':'rgba(239,68,68,.6)'});
+    mcCharts.ni=new Chart(document.getElementById('mc-ni'),{
+      type:'bar',data:{labels:labels,datasets:[{
+        label:'Profit net RON',data:niData,backgroundColor:niColors,borderRadius:4
+      }]},options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmtLarge(ctx.parsed.y)+' RON'}}}},
+        scales:{x:{ticks:{color:'#8b8fa3',font:{size:9}},grid:{display:false}},
+                y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmtLarge(v)}},grid:{color:'rgba(42,45,58,.5)'}}}
+      }
+    });
+  }
+
+  // EPS
+  var epses=q.map(function(qi){return qi.items['Diluted EPS']||null});
+  if(epses.some(function(v){return v!==null})){
+    if(mcCharts.eps)mcCharts.eps.destroy();
+    var epsData=epses.map(function(v){return v||0});
+    var epsColors=epsData.map(function(v){return v>=0?'rgba(34,197,94,.6)':'rgba(239,68,68,.6)'});
+    mcCharts.eps=new Chart(document.getElementById('mc-eps'),{
+      type:'bar',data:{labels:labels,datasets:[{
+        label:'EPS (RON)',data:epsData,backgroundColor:epsColors,borderRadius:4
+      }]},options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmt(ctx.parsed.y,4)+' RON'}}}},
+        scales:{x:{ticks:{color:'#8b8fa3',font:{size:9}},grid:{display:false}},
+                y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmt(v,2)+' RON'}},grid:{color:'rgba(42,45,58,.5)'}}}
+      }
+    });
+  }
+}
+
+function renderAnnualCharts(company){
+  var a=company.annual;
+  if(!a||a.length<2)return;
+  a.sort(function(a,b){return new Date(a.date)-new Date(b.date)});
+  var labels=a.map(function(ai){return new Date(ai.date).getFullYear()});
+
+  // Annual Revenue
+  var revs=a.map(function(ai){return ai.items['Total Revenue']||0});
+  if(revs.some(function(v){return v>0})){
+    if(mcCharts.annRev)mcCharts.annRev.destroy();
+    mcCharts.annRev=new Chart(document.getElementById('mc-ann-rev'),{
+      type:'bar',data:{labels:labels,datasets:[{
+        label:'Venituri anuale RON',data:revs,backgroundColor:'rgba(99,102,241,.6)',borderRadius:4
+      }]},options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmtLarge(ctx.parsed.y)+' RON'}}}},
+        scales:{x:{ticks:{color:'#8b8fa3',font:{size:10}},grid:{display:false}},
+                y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmtLarge(v)}},grid:{color:'rgba(42,45,58,.5)'}}}
+      }
+    });
+  }
+}
+
+function renderNews(simbol, nume){
+  var el=document.getElementById('m-news');
+  // Try Google News RSS
+  var q=encodeURIComponent(nume+' BVB actiuni');
+  el.innerHTML='<div style="margin-bottom:8px"><a href="https://news.google.com/search?q='+q+'&hl=ro&gl=RO" target="_blank" class="btn">Cauta pe Google News &rarr;</a></div>'+
+    '<div style="font-size:.8rem;color:var(--dim)">(linkuri externe — Google News)</div>';
+}
+
+function openAiAnalysis(simbol, company, price){
+  var ctx='Analizeaza '+simbol+' ('+company.nume+')';
+  if(company.metrics.sector)ctx+=', sector: '+company.metrics.sector;
+  if(price)ctx+=', pret curent: '+fmt(price.price,4)+' RON ('+(price.chg>=0?'+':'')+fmt(price.chg,2)+'%)';
+  if(company.metrics.marketCap)ctx+=', market cap: '+fmtLarge(company.metrics.marketCap)+' RON';
+  if(company.metrics.trailingPE)ctx+=', P/E: '+company.metrics.trailingPE.toFixed(2);
+  if(company.metrics.dividendYield)ctx+=', dividend yield: '+company.metrics.dividendYield.toFixed(2)+'%';
+  ctx+=', portofoliu personal.';
+
+  // Build a hermes protocol URL that opens a new conversation
+  // The user can copy this or click it
+  var fullPrompt='Da-mi o analiza detaliata despre '+simbol+' ('+company.nume+'). Context: '+ctx;
+  var hermesUrl='/new?q='+encodeURIComponent(fullPrompt);
+
+  // Copy to clipboard and show a toast
+  var ta=document.createElement('textarea');
+  ta.value=fullPrompt;
+  document.body.appendChild(ta);
+  ta.select();
+  try{document.execCommand('copy')}catch(e){}
+  document.body.removeChild(ta);
+
+  alert('Prompt copiat in clipboard!\n\nPaste in Hermes pentru o analiza detaliata despre '+simbol+':\n\n"'+fullPrompt+'"');
+}
+
+// === BOOT ===
+(function(){
+  fetch('portfolio_data.json?_=' + Date.now())
+    .then(function(r){return r.json()})
+    .then(function(data){
+      DATA=data;
+      STOCKS=DATA.holdings.filter(function(h){return h.tip==='actiuni'});
+      TURBO=DATA.holdings.filter(function(h){return h.tip!=='actiuni'});
+      STOCKS_ORIG=STOCKS.slice();TURBO_ORIG=TURBO.slice();
+      initCharts();ra();
+      document.querySelectorAll('thead').forEach(function(thead){
+        thead.addEventListener('click',_hdrClick);
+      });
+    });
+  // Load company financial data
+  fetch('company_data.json?_=' + Date.now())
+    .then(function(r){return r.json()})
+    .then(function(data){CD=data})
+    .catch(function(){console.log('company_data.json not available')});
+  ums();ul();
+  setInterval(ums,60000);
+  // auto-refresh live prices after 2s
+  setTimeout(function(){
+    if(typeof rp==='function')rp();
+  },2000);
+})();
+</script>
+</body>
+</html>
