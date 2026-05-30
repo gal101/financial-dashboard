@@ -227,23 +227,22 @@ BVB.ro + site-uri companii
 
 ## 🔒 Securitatea datelor personale
 
-**NU commita niciodata fisierele cu detinerile reale:**
+**NU commita niciodata fisierul cu detinerile reale:**
 
 - `bvb_portfolio.json` — contine portofoliul real (numar actiuni, pret achizitie, sume investite, P/L)
-- `portfolio_data.json` — identic cu cel de mai sus, servit de nginx pentru dashboard
 
-Aceste fisiere sunt listate in `.gitignore` si **nu vor fi urcate pe GitHub**.
+Acest fisier este listat in `.gitignore` si **nu va fi urcat pe GitHub**.
 
 ### Cum pornesti proiectul pe un server nou
 
 1. Cloneaza repo-ul
-2. Copiaza `portfolio_data.example.json` in `bvb_portfolio.json`
+2. Copiaza `bvb_portfolio.example.json` in `bvb_portfolio.json`
 3. Editeaza `bvb_portfolio.json` cu datele tale reale
-4. Ruleaza `portfolio_updater.py` pentru a genera si `portfolio_data.json`
+4. Ruleaza `portfolio_updater.py` pentru a genera preturile actualizate
 
 ### Ce e safe de commit
 
-- `portfolio_data.example.json` — structura anonimizata (fara date reale)
+- `bvb_portfolio.example.json` — structura anonimizata (fara date reale)
 - `company_data.json` — date publice despre companii (market cap, sector, etc.)
 - `dashboard.html`, `*.py` — codul aplicatiei
 - `FEATURES.md` — documentatia

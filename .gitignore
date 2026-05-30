@@ -1,12 +1,11 @@
 # === DATE PERSONALE (NU commita niciodata) ===
-# Aceste fisiere contin detinerile tale reale:
+# Acest fisier contine detinerile tale reale:
 #   - numar de actiuni detinute
 #   - pret de achizitie
 #   - valoare investita
 #   - profit/pierdere
 #   - istoric tranzactii
 bvb_portfolio.json
-portfolio_data.json
 
 # === PYTHON ===
 __pycache__/

@@ -3,7 +3,7 @@
 BVB Portfolio Price Updater
 ============================
 Fetches current prices from Yahoo Finance using yfinance (.RO suffix for BVB).
-Updates bvb_portfolio.json and re-injects into dashboard.html.
+Updates bvb_portfolio.json with live prices from Yahoo Finance.
 
 Usage:
     python3 portfolio_updater.py          # normal (skips weekends)
@@ -92,12 +92,7 @@ def load_portfolio():
 
 
 def save_portfolio(data):
-    # Save to main portfolio file
     with open(JSON_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    # Also save to portfolio_data.json served by nginx
-    data_file = os.path.join(BASE_DIR, "portfolio_data.json")
-    with open(data_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 

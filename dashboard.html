@@ -699,7 +699,7 @@ function openAiAnalysis(simbol, company, price){
 
 // === BOOT ===
 (function(){
-  fetch('portfolio_data.json?_=' + Date.now())
+  fetch('bvb_portfolio.json?_=' + Date.now())
     .then(function(r){return r.json()})
     .then(function(data){
       DATA=data;
