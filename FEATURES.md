@@ -1,7 +1,10 @@
 # BVB Portfolio Dashboard — Plan features
 
-> Document de planificare, v1.2
-> 29 mai 2026
+> Document de planificare / backlog, v1.3
+> 30 mai 2026
+>
+> **Vezi [PRD.md](./PRD.md) pentru planul curent de implementare (MVP).**
+> Acest document conține TOATE ideile, inclusiv cele pentru iterații viitoare.
 
 ---
 
