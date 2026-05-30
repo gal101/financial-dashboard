@@ -70,6 +70,7 @@ def fetch_company_data(simbol, nume):
             ("forwardPE", "forwardPE"),
             ("priceToBook", "priceToBook"),
             ("dividendYield", "dividendYield"),
+            ("dividendRate", "dividendRate"),
             ("totalRevenue", "totalRevenue"),
             ("profitMargins", "profitMargins"),
             ("returnOnEquity", "returnOnEquity"),

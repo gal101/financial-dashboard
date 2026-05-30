@@ -29,6 +29,7 @@
     <div class="kpi"><div class="kpi-label">Total investit</div><div class="kpi-val neu" id="ki">-</div><div class="kpi-sub">RON</div><div class="kpi-sub sub" id="kit"></div></div>
     <div class="kpi"><div class="kpi-label">Profit / Pierdere</div><div class="kpi-val" id="kp">-</div><div class="kpi-sub" id="kpp">-</div></div>
     <div class="kpi"><div class="kpi-label">Pozitii deschise</div><div class="kpi-val neu" id="kn">-</div><div class="kpi-sub">actiuni</div></div>
+    <div class="kpi"><div class="kpi-label">Dividend anual est.</div><div class="kpi-val neu" id="kd">-</div><div class="kpi-sub">RON</div></div>
     <div class="kpi"><div class="kpi-label">P/L Real (incl. realizat)</div><div class="kpi-val" id="krp">-</div><div class="kpi-sub">profit real</div><div class="kpi-sub sub" id="krpr"></div></div>
   </div>
 
@@ -57,6 +58,7 @@
       <div class="ch"><h3>&#128202; Alocatie</h3><div class="ch-wrap"><canvas id="ac"></canvas></div></div>
       <div class="ch"><h3>&#128176; P/L per pozitie</h3><div class="ch-wrap"><canvas id="pc"></canvas></div></div>
       <div class="ch"><h3>&#127919; Distributie tip</h3><div class="ch-wrap" style="height:200px"><canvas id="tc"></canvas></div></div>
+      <div class="ch"><h3>&#127758; Alocare pe sectoare</h3><div class="ch-wrap" style="height:200px"><canvas id="sc-canvas"></canvas></div></div>
     </div>
   </div>
 </div>
@@ -114,7 +116,7 @@ var DATA=null;
 var STOCKS=[];
 var TURBO=[];
 var prices={};
-var ac,pc,tc;
+var ac,pc,tc,sc;
 
 // === SORT ===
 var sortStocks={col:null,dir:null},sortTurbo={col:null,dir:null};
@@ -253,6 +255,18 @@ function ra(){
   document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
   document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
   document.getElementById('kn').textContent=STOCKS.length;
+  // Dividend income estimate
+  var divTotal=0;
+  if(CD&&CD.companies){
+    STOCKS.forEach(function(h){
+      var comp=CD.companies[h.simbol];
+      if(comp&&comp.metrics&&comp.metrics.dividendYield){
+        var val=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON);
+        divTotal+=val*comp.metrics.dividendYield;
+      }
+    });
+  }
+  document.getElementById('kd').textContent=fmt(divTotal)+' RON';
   // Real P/L = unrealized + realized
   var rpnl=0;
   if(DATA.realized_pnl&&DATA.realized_pnl.total_realized_loss_RON){
@@ -344,6 +358,7 @@ function updateCharts(){
   pc.update('none');
   var sv=0,tv=0;STOCKS.forEach(function(h,i){sv+=vals[i]});TURBO.forEach(function(h,i){tv+=vals[STOCKS.length+i]});
   tc.data.datasets[0].data=[sv,tv];tc.update('none');
+  updateSectorChart();
   // update KPI
   var invested=0,total=0;
   all.forEach(function(h){invested+=h.investitie_initiala_RON;total+=vals[all.indexOf(h)]});
@@ -354,6 +369,49 @@ function updateCharts(){
   document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
   document.getElementById('kv').textContent=fmt(total)+' RON';
   document.getElementById('kvr').textContent=fmt(total,2)+' RON';
+}
+
+// === SECTOR ALLOCATION ===
+var SECTOR_COLORS={'Financial Services':'#3b82f6','Energy':'#f97316','Technology':'#8b5cf6','Industrials':'#14b8a6','Utilities':'#eab308','Structured Products':'#f59e0b','Other':'#6b7280'};
+function initSectorChart(){
+  if(!CD||!CD.companies)return;
+  var sectors={};
+  STOCKS.forEach(function(h){
+    var comp=CD.companies[h.simbol];
+    var sector=(comp&&comp.metrics&&comp.metrics.sector)?comp.metrics.sector:'Other';
+    var val=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON);
+    sectors[sector]=(sectors[sector]||0)+val;
+  });
+  if(TURBO.length){
+    var tv=0;TURBO.forEach(function(h){tv+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
+    if(tv>0)sectors['Structured Products']=tv;
+  }
+  var labels=Object.keys(sectors);
+  var data=labels.map(function(k){return sectors[k]});
+  var colors=labels.map(function(k){return SECTOR_COLORS[k]||'#6b7280'});
+  if(sc)sc.destroy();
+  sc=new Chart(document.getElementById('sc-canvas'),{type:'doughnut',data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#8b8fa3',font:{size:10},padding:8,usePointStyle:true}}},cutout:'55%'}});
+}
+function updateSectorChart(){
+  if(!CD||!CD.companies||!sc)return;
+  var sectors={};
+  STOCKS.forEach(function(h){
+    var comp=CD.companies[h.simbol];
+    var sector=(comp&&comp.metrics&&comp.metrics.sector)?comp.metrics.sector:'Other';
+    var val=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON);
+    sectors[sector]=(sectors[sector]||0)+val;
+  });
+  if(TURBO.length){
+    var tv=0;TURBO.forEach(function(h){tv+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
+    if(tv>0)sectors['Structured Products']=tv;
+  }
+  var labels=Object.keys(sectors);
+  var data=labels.map(function(k){return sectors[k]});
+  var colors=labels.map(function(k){return SECTOR_COLORS[k]||'#6b7280'});
+  sc.data.labels=labels;
+  sc.data.datasets[0].data=data;
+  sc.data.datasets[0].backgroundColor=colors;
+  sc.update('none');
 }
 
 // === COMPANY MODAL ===
@@ -418,7 +476,8 @@ function showCompany(simbol){
     {v:m.trailingPE,l:'P/E (TTM)',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
     {v:m.forwardPE,l:'P/E (forward)',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
     {v:m.priceToBook,l:'P/B',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
-    {v:m.dividendYield,l:'Div. Yield',f:function(n){return n?n.toFixed(2):'-'},s:'%'},
+    {v:m.dividendYield,l:'Div. Yield',f:function(n){return n?(n*100).toFixed(2):'-'},s:'%'},
+    {v:m.dividendRate,l:'Div. anual',f:function(n){return n?n.toFixed(4):'-'},s:'RON/act'},
     {v:m.beta,l:'Beta',f:function(n){return n?n.toFixed(2):'-'},s:''},
     {v:m.profitMargins,l:'Marja profit',f:fmtPct,s:''},
     {v:m.returnOnEquity,l:'ROE',f:fmtPct,s:''},
@@ -703,7 +762,7 @@ function wlRender() {
   // Load company financial data
   fetch('company_data.json?_=' + Date.now())
     .then(function(r){return r.json()})
-    .then(function(data){CD=data})
+    .then(function(data){CD=data;initSectorChart()})
     .catch(function(){console.log('company_data.json not available')});
   // Load watchlist
   wlLoad();

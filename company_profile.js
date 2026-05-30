@@ -64,6 +64,10 @@ function renderMetrics(metrics) {
     items.push({label: 'Dividend Yield', val: (metrics.dividendYield * 100).toFixed(2) + '%'});
   }
 
+  if (metrics.dividendRate) {
+    items.push({label: 'Dividend anual', val: metrics.dividendRate.toFixed(4) + ' RON'});
+  }
+
   if (metrics.profitMargins) {
     items.push({label: 'Marja profit', val: (metrics.profitMargins * 100).toFixed(1) + '%'});
   }
