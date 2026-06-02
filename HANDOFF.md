@@ -2,6 +2,15 @@
 
 This document outlines the step-by-step migration process from Yahoo Finance (`yfinance`) to the Tradeville API. This is prepared for the next agent/developer to execute.
 
+## Instructions for the Implementing Agent
+
+Before writing code, please read and adhere to the following development guidelines:
+
+1. **Apply Test-Driven Development (TDD):** Use the `tdd` skill (red-green-refactor loop) when implementing code. Write tests first, ensure they fail, write the minimal code to make them pass, and then refactor. Apply this especially to helper utilities, client methods, and server endpoints.
+2. **Follow GitHub Issue Order:** The migration has been decomposed into 8 vertical tracer bullets on GitHub (Issues **#16** through **#23**). Implement them sequentially in the order of their dependencies (starting with #16).
+3. **Utilize Sub-Agents:** You are encouraged to delegate individual issues to specialized sub-agents (e.g., `task` for engineering slices, `oracle` for complex reviews, `designer` for frontend styling).
+4. **Respect Dependency-Aware Delegation:** Do NOT spawn sub-agents for blocked tasks. Ensure all blockers for a given issue are fully implemented, verified, and merged before starting or delegating that issue.
+
 ---
 
 ## 1. Prerequisites & Dependencies
