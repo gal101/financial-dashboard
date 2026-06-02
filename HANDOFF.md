@@ -120,9 +120,86 @@ Create `financial-dashboard/server/shared/activity_sync.py` to sync account tran
 2. **Toggle Javascript Logic (`company_profile.js`):**
    - Define a global state variable `var chartType = 'line';`. Add click listeners to update type and redraw.
 3. **Chart Rendering Updates (`renderPriceChart`):**
-   - Integrate a discrete **Volume dataset** as a background overlay using a hidden secondary Y-axis (`yVolume`) scaled so that the volume bars only occupy the bottom 15-20% of the chart area.
-   - *NOTE:* The final graph rendering method (Floating Bars vs. Shaded Range Band) is currently under review by a sub-agent. Maintain current Line chart structure and check the subagent conclusion before writing the final Javascript code.
-
+   - In `company_profile.js`, call `Chart.register(Chart.Filler);` once during script load.
+   - In `renderPriceChart()`, compile the datasets dynamically based on `chartType` using the **Shaded Range Band** method:
+     * **Volume Dataset (Always present as background overlay):**
+       ```javascript
+       {
+         type: 'bar',
+         label: 'Volum',
+         data: prices.map(p => p.volume || 0),
+         backgroundColor: 'rgba(59, 130, 246, 0.12)', // light blue overlay
+         borderColor: 'transparent',
+         yAxisID: 'yVolume',
+         order: 3
+       }
+       ```
+     * **If `chartType === 'line'`:** Use a single line dataset with `data: prices.map(p => p.close)` (mapped to primary Y-axis `y`, `order: 1`).
+     * **If `chartType === 'range'`:** Compile three datasets to build the shaded volatility band:
+       1. **Dataset 0 (Low Boundary - Invisible):**
+          ```javascript
+          {
+            type: 'line',
+            label: 'Minim',
+            data: prices.map(p => p.low !== null ? p.low : p.close),
+            borderColor: 'transparent',
+            pointRadius: 0,
+            fill: false,
+            order: 2
+          }
+          ```
+       2. **Dataset 1 (High Boundary - Filled to Low):**
+          ```javascript
+          {
+            type: 'line',
+            label: 'Maxim',
+            data: prices.map(p => p.high !== null ? p.high : p.close),
+            borderColor: 'transparent',
+            pointRadius: 0,
+            fill: '-1', // references previous dataset (index 0 - Low)
+            backgroundColor: 'rgba(139, 143, 163, 0.15)', // Shaded range band
+            order: 1
+          }
+          ```
+       3. **Dataset 2 (Close Price Line):**
+          ```javascript
+          {
+            type: 'line',
+            label: 'Preț Închidere',
+            data: prices.map(p => p.close),
+            borderColor: color,
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1,
+            order: 0
+          }
+          ```
+     - **Axis Scales Configuration:** Ensure Chart.js is initialized with two Y scales (`y` for price, `yVolume` for volume):
+       ```javascript
+       scales: {
+         x: { ... },
+         y: { type: 'linear', position: 'left', ticks: { ... } },
+         yVolume: {
+           type: 'linear',
+           position: 'right',
+           display: false,
+           grid: { display: false },
+           max: Math.max.apply(null, prices.map(p => p.volume || 0)) * 5 // bottom 20% overlay
+         }
+       }
+       ```
+     - **Tooltip Customization:** Leverage Chart.js's built-in `mode: 'index', intersect: false` interaction. Customize the tooltip callbacks to display Open/High/Low/Close cleanly when hovering:
+       ```javascript
+       plugins: {
+         tooltip: {
+           callbacks: {
+             label: function(ctx) {
+               return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(4) + ' RON';
+             }
+           }
+         }
+       }
+       ```
 ---
 
 ## 3. Tradeville API Schema Mapping Cheat Sheet
