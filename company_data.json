@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-06-02T18:16:36.206920+00:00",
+  "updated_at": "2026-06-02T18:42:16.154904+00:00",
   "companies": {
     "BENTO": {
       "simbol": "BENTO",
@@ -9397,7 +9397,7 @@
           "event": "Raport T3 2026"
         }
       ],
-      "updated_at": "2026-06-02T18:16:36.210430+00:00",
+      "updated_at": "2026-06-02T18:42:16.158277+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 88100000.0,
@@ -20768,7 +20768,7 @@
           "event": "Rezultate financiare trimestrul III 2026"
         }
       ],
-      "updated_at": "2026-06-02T18:16:36.214056+00:00"
+      "updated_at": "2026-06-02T18:42:16.161682+00:00"
     },
     "DN": {
       "simbol": "DN",
@@ -30452,7 +30452,7 @@
           "event": "Teleconferinta – prezentare rezultate financiare trimestrul III"
         }
       ],
-      "updated_at": "2026-06-02T18:16:36.216989+00:00",
+      "updated_at": "2026-06-02T18:42:16.164398+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 200000000.0,
@@ -36180,7 +36180,7 @@
         }
       ],
       "calendar": [],
-      "updated_at": "2026-06-02T18:16:36.218660+00:00"
+      "updated_at": "2026-06-02T18:42:16.166003+00:00"
     },
     "H2O": {
       "simbol": "H2O",
@@ -42821,7 +42821,7 @@
           "event": "Teleconferinta – prezentare rezultate financiare trimestrul III"
         }
       ],
-      "updated_at": "2026-06-02T18:16:36.220581+00:00",
+      "updated_at": "2026-06-02T18:42:16.167857+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 11939687000.0,
@@ -42839,13 +42839,10 @@
         "sharesOutstanding": 125001250,
         "isin": "CY0200900914",
         "earnings": 451984983.7,
-        "dividend": 0.597276,
-        "divPrice": 20.35,
         "refPrice": 52.4,
         "trailingPE": 78.08,
         "eps": 0.678761,
-        "profitMargins": 0.0484,
-        "dividendYield": 1.14
+        "profitMargins": 0.0484
       },
       "quarterly": [
         {
@@ -47448,7 +47445,7 @@
           "event": "Analysts and Investors Call (Q3 2026 Results)"
         }
       ],
-      "updated_at": "2026-06-02T18:16:36.221855+00:00"
+      "updated_at": "2026-06-02T18:42:16.169221+00:00"
     },
     "SAFE": {
       "simbol": "SAFE",
@@ -47460,14 +47457,11 @@
         "sharesOutstanding": 162717653,
         "isin": "RO0MDTLNZV25",
         "earnings": 12342649.0,
-        "dividend": 0.01,
-        "divPrice": 0.9,
         "refPrice": 0.92,
         "trailingPE": 11.81,
         "forwardPE": 9.19,
         "eps": 0.075853,
-        "profitMargins": 0.3222,
-        "dividendYield": 1.09
+        "profitMargins": 0.3222
       },
       "quarterly": [
         {
@@ -58806,7 +58800,7 @@
           "event": "Rezultate financiare trimestrul III 2026"
         }
       ],
-      "updated_at": "2026-06-02T18:16:36.224991+00:00",
+      "updated_at": "2026-06-02T18:42:16.172356+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 69965000.0,
@@ -69966,7 +69960,7 @@
           "event": "Publicare rezultate T1 2026"
         }
       ],
-      "updated_at": "2026-06-02T18:16:36.229018+00:00",
+      "updated_at": "2026-06-02T18:42:16.176219+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 907233124.0,
@@ -81284,7 +81278,7 @@
           "event": "Rezultate financiare trimestrul III 2026"
         }
       ],
-      "updated_at": "2026-06-02T18:16:36.232140+00:00",
+      "updated_at": "2026-06-02T18:42:16.179334+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 30891000000.0,
@@ -92608,7 +92602,7 @@
           "event": "Teleconferinta – prezentare rezultate financiare trimestrul III"
         }
       ],
-      "updated_at": "2026-06-02T18:16:36.235246+00:00",
+      "updated_at": "2026-06-02T18:42:16.182447+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 10779000000.0,
