@@ -8,6 +8,8 @@ var priceChart = null;
 var annChart = null;
 var qChart = null;
 var finMode = 'profit';  // 'profit' or 'venituri'
+Chart.register(Chart.Filler);
+var chartType = 'line';
 
 function parseSymbol() {
   var m = location.search.match(/[?&]symbol=([^&]+)/);
@@ -146,19 +148,81 @@ function renderPriceChart() {
 
   if (priceChart) priceChart.destroy();
   var ctx = document.getElementById('ch-price-chart').getContext('2d');
+
+  var datasets = [];
+  
+  // Volume Dataset (Always present as background overlay)
+  var volumeData = prices.map(function(p) { return p.volume || 0; });
+  var maxVol = Math.max.apply(null, volumeData);
+  if (maxVol <= 0) maxVol = 1;
+
+  datasets.push({
+    type: 'bar',
+    label: 'Volum',
+    data: volumeData,
+    backgroundColor: 'rgba(59, 130, 246, 0.12)', // light blue overlay
+    borderColor: 'transparent',
+    yAxisID: 'yVolume',
+    order: 3
+  });
+
+  if (chartType === 'line') {
+    datasets.push({
+      type: 'line',
+      label: 'Preț Închidere',
+      data: data,
+      borderColor: color,
+      backgroundColor: color + '20',
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.1,
+      fill: true,
+      yAxisID: 'y',
+      order: 1
+    });
+  } else if (chartType === 'range') {
+    // Dataset 0: Low Boundary (Invisible)
+    datasets.push({
+      type: 'line',
+      label: 'Minim',
+      data: prices.map(function(p) { return p.low !== null && p.low !== undefined ? p.low : p.close; }),
+      borderColor: 'transparent',
+      pointRadius: 0,
+      fill: false,
+      yAxisID: 'y',
+      order: 2
+    });
+    // Dataset 1: High Boundary (Filled to Low)
+    datasets.push({
+      type: 'line',
+      label: 'Maxim',
+      data: prices.map(function(p) { return p.high !== null && p.high !== undefined ? p.high : p.close; }),
+      borderColor: 'transparent',
+      pointRadius: 0,
+      fill: '-1', // references previous dataset (index 0 - Low)
+      backgroundColor: 'rgba(139, 143, 163, 0.15)', // Shaded range band
+      yAxisID: 'y',
+      order: 1
+    });
+    // Dataset 2: Close Price Line
+    datasets.push({
+      type: 'line',
+      label: 'Preț Închidere',
+      data: data,
+      borderColor: color,
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.1,
+      yAxisID: 'y',
+      order: 0
+    });
+  }
+
   priceChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels: labels,
-      datasets: [{
-        data: data,
-        borderColor: color,
-        backgroundColor: color + '20',
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0.1,
-        fill: true
-      }]
+      datasets: datasets
     },
     options: {
       responsive: true,
@@ -166,11 +230,26 @@ function renderPriceChart() {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
-        tooltip: { displayColors: false, callbacks: { label: function(ctx) { return ctx.parsed.y.toFixed(4) + ' RON'; } } }
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: function(ctx) {
+              return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(4) + ' RON';
+            }
+          }
+        }
       },
       scales: {
         x: { ticks: { color: '#8b8fa3', font: { size: 8 }, maxTicksLimit: 8 }, grid: { color: 'rgba(42,45,58,0.3)' } },
-        y: { ticks: { color: '#8b8fa3', font: { size: 9 }, callback: function(v) { return v.toFixed(1); } }, grid: { color: 'rgba(42,45,58,0.3)' } }
+        y: { type: 'linear', position: 'left', ticks: { color: '#8b8fa3', font: { size: 9 }, callback: function(v) { return v.toFixed(2); } }, grid: { color: 'rgba(42,45,58,0.3)' } },
+        yVolume: {
+          type: 'linear',
+          position: 'right',
+          display: false,
+          grid: { display: false },
+          max: maxVol * 5
+        }
       }
     }
   });
@@ -358,6 +437,7 @@ function renderPrice(comp) {
   }
 }
 
+
 // === EVENT LISTENERS ===
 document.addEventListener('DOMContentLoaded', function() {
   // Period buttons
@@ -368,6 +448,17 @@ document.addEventListener('DOMContentLoaded', function() {
     for (var i = 0; i < btns.length; i++) btns[i].classList.remove('on');
     btn.classList.add('on');
     currentPeriod = btn.dataset.p;
+    renderPriceChart();
+  });
+
+  // Chart type toggle buttons
+  document.getElementById('ch-type-btns').addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var btns = document.getElementById('ch-type-btns').querySelectorAll('button');
+    for (var i = 0; i < btns.length; i++) btns[i].classList.remove('on');
+    btn.classList.add('on');
+    chartType = btn.dataset.t;
     renderPriceChart();
   });
 
