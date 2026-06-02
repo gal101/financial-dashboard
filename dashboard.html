@@ -778,7 +778,7 @@ function wlRender() {
   // Load company financial data
   fetch('company_data.json?_=' + Date.now())
     .then(function(r){return r.json()})
-    .then(function(data){CD=data;initSectorChart()})
+    .then(function(data){CD=data;initSectorChart();ra()})
     .catch(function(){console.log('company_data.json not available')});
   // Load watchlist
   wlLoad();
