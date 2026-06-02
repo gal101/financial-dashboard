@@ -55,7 +55,11 @@ We will introduce two interactive setup scripts (`setup_credentials.py` and `set
 * **`company_fetcher.py`:** Replaced `yfinance.Ticker.history` with `TradevilleClient.get_daily_values`. If specific symbols are passed via CLI, it fetches history and structural metadata (via `Symbol` command) only for those symbols, saving it to SQLite. It will extract and insert the full OHLCV datasets (`open`, `high`, `low`, `volume`, `close`) from Tradeville's `DailyValues` command.
 * **`server/handlers/refresh.py` & `watchlist.py`:** Updated to trigger targeted updates (passing the specific symbol to the script subprocesses) when a new company is added to the watchlist.
 
-### 6. Frontend Dual-Chart Toggle & Volume Overlay
+### 6. Automated Portfolio Sync & Personal Activity Log
+* **Automated Portfolio Sync:** `portfolio_updater.py` will be modified to query Tradeville's `Portfolio` command via the local HTTP proxy gateway. If real credentials are used, it will automatically sync holding symbols, quantities, and average buy prices (`AvgPrice`) directly from the Tradeville account, dynamically updating/overwriting the local `bvb_portfolio.json` before calculating valuations.
+* **Activity Sync & Realized P/L:** A new sync mechanism (`activity_sync.py` script or server background task) will query the `Activity` command for the account's transaction history. It will populate a new SQLite table `user_transactions` (`date`, `op_type`, `symbol`, `quantity`, `price`, `commission`, `amount`) to track buy/sell logs, calculate realized profits, and log actual dividends received, displaying them in a new UI transaction view.
+
+### 7. Frontend Dual-Chart Toggle & Volume Overlay
 * **Toggle UI:** A new button group (`#ch-type-btns`) will be added to `company.html` next to the period buttons, displaying two toggle options: `Linie` (Line Chart) and `Min-Max` (Daily Range Chart).
 * **Discrete Volume Overlay:** A separate volume bar dataset (`type: 'bar'`, `data: prices.map(p => p.volume)`) will be added to the chart. It will be mapped to a hidden secondary Y-axis (`yVolume`) scaled so that the volume bars only occupy the bottom 15-20% of the chart area (acting as a discrete, non-overlapping background indicator).
 * **Chart Rendering (`company_profile.js`):**
