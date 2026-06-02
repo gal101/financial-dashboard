@@ -405,6 +405,7 @@ def export_to_json(output_path: str = None) -> str:
                 "dividend": comp.get("dividend"),
                 "divPrice": comp.get("div_price"),
                 "refPrice": comp.get("ref_price"),
+                "trailingPE": metrics.get("trailing_pe"),
                 "forwardPE": metrics.get("forward_pe"),
                 "eps": metrics.get("eps"),
                 "profitMargins": metrics.get("profit_margin"),
