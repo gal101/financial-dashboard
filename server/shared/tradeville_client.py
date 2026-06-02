@@ -69,6 +69,7 @@ class TradevilleClient:
         lows = data.get("Low") or []
         closes = data.get("Close") or []
         volumes = data.get("Volume") or []
+        values = data.get("Value") or []
         
         out = []
         for i in range(len(dates)):
@@ -78,6 +79,7 @@ class TradevilleClient:
                 "high": highs[i] if i < len(highs) else None,
                 "low": lows[i] if i < len(lows) else None,
                 "close": closes[i] if i < len(closes) else None,
-                "volume": volumes[i] if i < len(volumes) else None
+                "volume": volumes[i] if i < len(volumes) else None,
+                "value": values[i] if i < len(values) else None
             })
         return out

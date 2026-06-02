@@ -25,6 +25,21 @@ from shared.tradeville_client import TradevilleClient
 PORTFOLIO_FILE = os.path.join(SCRIPT_DIR, "bvb_portfolio.json")
 WATCHLIST_FILE = os.path.join(SCRIPT_DIR, "watchlist.json")
 
+def _extract_scalar(val, default=None):
+    """Extract a scalar from a Tradeville columnar value (which can be list, dict, or scalar)."""
+    if val is None:
+        return default
+    if isinstance(val, list):
+        if len(val) == 0:
+            return default
+        inner = val[0]
+        if isinstance(inner, dict):
+            return default
+        return inner
+    if isinstance(val, dict):
+        return default
+    return val
+
 def main():
     conn = get_db()
     symbols_seen = set()
@@ -74,16 +89,22 @@ def main():
             metadata_res = client.get_symbol_price(sym)
             if "data" in metadata_res and not metadata_res.get("is_offline"):
                 sdata = metadata_res["data"]
-                name = sdata.get("Name", [sym])[0]
-                shares_outstanding = sdata.get("SharesNr", [None])[0]
-                isin = sdata.get("ISIN", [None])[0]
-                earnings = sdata.get("Earnings", [None])[0]
-                earn_date = sdata.get("EarnDate", [None])[0]
-                price = sdata.get("Price", [0.0])[0]
+                name = _extract_scalar(sdata.get("Name"), sym)
+                shares_outstanding = _extract_scalar(sdata.get("SharesNr"))
+                isin = _extract_scalar(sdata.get("ISIN"))
+                earnings = _extract_scalar(sdata.get("Earnings"))
+                earn_date = _extract_scalar(sdata.get("EarnDate"))
+                price = _extract_scalar(sdata.get("Price"), 0.0)
+                dividend = _extract_scalar(sdata.get("Dividend"))
+                div_price = _extract_scalar(sdata.get("DivPrice"))
+                ref_price = _extract_scalar(sdata.get("RefPrice"))
 
                 market_cap = None
                 if shares_outstanding and price:
-                    market_cap = shares_outstanding * price
+                    try:
+                        market_cap = int(shares_outstanding) * float(price)
+                    except (ValueError, TypeError):
+                        pass
 
                 upsert_company(
                     conn, sym, name,
@@ -91,8 +112,12 @@ def main():
                     market_cap=market_cap,
                     isin=isin,
                     earnings=earnings,
-                    earn_date=earn_date
+                    earn_date=earn_date,
+                    dividend=dividend,
+                    div_price=div_price,
+                    ref_price=ref_price
                 )
+                conn.commit()
 
             # 2. Fetch price history
             prices = client.get_daily_values(sym, start_date=five_years_ago)

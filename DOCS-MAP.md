@@ -13,7 +13,7 @@ This document serves as a map to the repository's documentation ecosystem. Befor
 | **`TRADEVILLE-API-DOCS.md`** | Technical reference for the Tradeville API. | To view exact **JSON payloads** (requests/responses), connection endpoints, and response schemas for BVB queries. | **Current & Active.** Reference cheat sheet. |
 | **`CONTEXT.md`** | Project glossary and financial calculations source of truth. | To understand BVB-specific calculations (e.g. TTM P/E using quarterly derived figures, EPS, profit margins). | **Stable.** Read to keep domain logic aligned. |
 | **`FEATURES.md`** | Project backlog and roadmap. | To review completed features (`✅`) vs. future unimplemented features (`❌`). | **Stable.** Refer to for project context and future goals. |
-| **`README.md`** | Repository setup guide and overview. | To understand how to run the project locally. | **Lagging Behind.** Currently describes the old Yahoo Finance setup. *Needs update at the start of implementation.* |
+| **`README.md`** | Repository setup guide and overview. | To understand how to run the project locally. | **Current.** Updated for Tradeville API migration (WebSocket gateway, proxy architecture, demo account setup). |
 | **`OLD-PRD.md`** | MVP specification (Yahoo Finance). | Retained strictly as historical reference. | **Archived.** |
 | **`references/bvb-scraping-recipe.md`** | Scraping methodology guide for BVB.ro. | Refer to when developing future web scraping tasks. | **Archived.** |
 

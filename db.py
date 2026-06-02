@@ -40,7 +40,10 @@ CREATE TABLE IF NOT EXISTS companies (
     market_cap REAL,
     isin TEXT,
     earnings REAL,
-    earn_date TEXT
+    earn_date TEXT,
+    dividend REAL,
+    div_price REAL,
+    ref_price REAL
 );
 
 CREATE TABLE IF NOT EXISTS quarterly (
@@ -101,6 +104,7 @@ CREATE TABLE IF NOT EXISTS price_history (
     high REAL,
     low REAL,
     volume INTEGER,
+    value REAL,
     PRIMARY KEY (symbol, date),
     FOREIGN KEY (symbol) REFERENCES companies(symbol)
 );
@@ -134,6 +138,12 @@ def init_db(conn: sqlite3.Connection = None) -> sqlite3.Connection:
             conn.execute("ALTER TABLE companies ADD COLUMN earnings REAL")
         if "earn_date" not in comp_cols:
             conn.execute("ALTER TABLE companies ADD COLUMN earn_date TEXT")
+        if "dividend" not in comp_cols:
+            conn.execute("ALTER TABLE companies ADD COLUMN dividend REAL")
+        if "div_price" not in comp_cols:
+            conn.execute("ALTER TABLE companies ADD COLUMN div_price REAL")
+        if "ref_price" not in comp_cols:
+            conn.execute("ALTER TABLE companies ADD COLUMN ref_price REAL")
     # Check and migrate price_history table columns
     cursor = conn.execute("PRAGMA table_info(price_history)")
     columns = [row["name"] for row in cursor.fetchall()]
@@ -142,7 +152,8 @@ def init_db(conn: sqlite3.Connection = None) -> sqlite3.Connection:
         conn.execute("ALTER TABLE price_history ADD COLUMN high REAL")
         conn.execute("ALTER TABLE price_history ADD COLUMN low REAL")
         conn.execute("ALTER TABLE price_history ADD COLUMN volume INTEGER")
-    conn.commit()
+    if columns and "value" not in columns:
+        conn.execute("ALTER TABLE price_history ADD COLUMN value REAL")
     return conn
 
 
@@ -193,7 +204,7 @@ def get_company(conn: sqlite3.Connection, symbol: str) -> dict:
     
     # Price history
     prices = conn.execute(
-        "SELECT date, close, open, high, low, volume FROM price_history WHERE symbol = ? ORDER BY date",
+        "SELECT date, close, open, high, low, volume, value FROM price_history WHERE symbol = ? ORDER BY date",
         (symbol,)
     ).fetchall()
     result["price_history"] = [dict(r) for r in prices]
@@ -229,15 +240,16 @@ def upsert_prices(conn: sqlite3.Connection, symbol: str, prices: list) -> int:
             low = sanitize_val(p.get("low"))
             volume = sanitize_val(p.get("volume"))
             conn.execute(
-                "INSERT INTO price_history (symbol, date, close, open, high, low, volume) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "INSERT INTO price_history (symbol, date, close, open, high, low, volume, value) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(symbol, date) DO UPDATE SET "
                 "close = excluded.close, "
                 "open = COALESCE(excluded.open, open), "
                 "high = COALESCE(excluded.high, high), "
                 "low = COALESCE(excluded.low, low), "
-                "volume = COALESCE(excluded.volume, volume)",
-                (symbol, p["date"], close, open_val, high, low, volume)
+                "volume = COALESCE(excluded.volume, volume), "
+                "value = COALESCE(excluded.value, value)",
+                (symbol, p["date"], close, open_val, high, low, volume, sanitize_val(p.get("value")))
             )
             count += 1
         conn.commit()
@@ -258,11 +270,12 @@ def update_market_cap(conn: sqlite3.Connection, symbol: str, market_cap: float):
 def upsert_company(conn: sqlite3.Connection, symbol: str, name: str,
                    sector: str = None, industry: str = None,
                    shares_outstanding: int = None, market_cap: float = None,
-                   isin: str = None, earnings: float = None, earn_date: str = None):
+                   isin: str = None, earnings: float = None, earn_date: str = None,
+                   dividend: float = None, div_price: float = None, ref_price: float = None):
     """Insert or update a company row."""
     conn.execute("""
-        INSERT INTO companies (symbol, name, sector, industry, shares_outstanding, market_cap, isin, earnings, earn_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO companies (symbol, name, sector, industry, shares_outstanding, market_cap, isin, earnings, earn_date, dividend, div_price, ref_price)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(symbol) DO UPDATE SET
             name = COALESCE(excluded.name, name),
             sector = COALESCE(excluded.sector, sector),
@@ -271,8 +284,11 @@ def upsert_company(conn: sqlite3.Connection, symbol: str, name: str,
             market_cap = COALESCE(excluded.market_cap, market_cap),
             isin = COALESCE(excluded.isin, isin),
             earnings = COALESCE(excluded.earnings, earnings),
-            earn_date = COALESCE(excluded.earn_date, earn_date)
-    """, (symbol, name, sector, industry, shares_outstanding, sanitize_val(market_cap), isin, sanitize_val(earnings), earn_date))
+            earn_date = COALESCE(excluded.earn_date, earn_date),
+            dividend = COALESCE(excluded.dividend, dividend),
+            div_price = COALESCE(excluded.div_price, div_price),
+            ref_price = COALESCE(excluded.ref_price, ref_price)
+    """, (symbol, name, sector, industry, shares_outstanding, sanitize_val(market_cap), isin, sanitize_val(earnings), earn_date, sanitize_val(dividend), sanitize_val(div_price), sanitize_val(ref_price)))
 
 
 def upsert_quarterly(conn: sqlite3.Connection, symbol: str, entries: list):
@@ -381,7 +397,9 @@ def export_to_json(output_path: str = None) -> str:
                 "isin": comp.get("isin"),
                 "earnings": comp.get("earnings"),
                 "earnDate": comp.get("earn_date"),
-                "trailingPE": metrics.get("trailing_pe"),
+                "dividend": comp.get("dividend"),
+                "divPrice": comp.get("div_price"),
+                "refPrice": comp.get("ref_price"),
                 "forwardPE": metrics.get("forward_pe"),
                 "eps": metrics.get("eps"),
                 "profitMargins": metrics.get("profit_margin"),
@@ -417,7 +435,8 @@ def export_to_json(output_path: str = None) -> str:
                     "open": p.get("open"),
                     "high": p.get("high"),
                     "low": p.get("low"),
-                    "volume": p.get("volume")
+                    "volume": p.get("volume"),
+                    "value": p.get("value")
                 }
                 for p in comp.get("price_history", [])
             ],
