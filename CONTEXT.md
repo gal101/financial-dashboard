@@ -10,7 +10,7 @@
 |---|---|
 | **Portfolio** | Detinerile reale ale utilizatorului (actiuni + produse structurate), cu cantitati si preturi de achizitie. Sursa: `bvb_portfolio.json`. |
 | **Holding** | O pozitie individuala din portofoliu — un simbol cu o cantitate detinuta, pret de achizitie, valoare curenta, P/L. |
-| **Watchlist** | Lista de simboluri urmarite de utilizator dar **fara detinere**. Separat de Portfolio. |
+| **Watchlist** | Lista de simboluri urmarite de utilizator dar **fara detinere**. Separat de Portfolio. ✅ Implementat. |
 | **Company Profile** | Sectiunea cu detaliile unei singure companii: metrici financiare, grafice de pret, rezultate financiare. Accesibila atat din Holdings cat si din Watchlist. |
 | **Simbol** | Ticker-ul BVB al companiei (ex: `TLV`, `SNP`, `BENTO`). Se stocheaza **fara** sufix `.RO`. Sufixul `.RO` se adauga doar in request-urile catre Yahoo Finance. |
 | **Produs structurat** | Certificate turbo (ex: `EBTLVTL19`). Nu sunt listate pe Yahoo Finance — pretul de referinta e cel din exportul brokerului. |
@@ -33,6 +33,20 @@
 
 | Sursa | Ce furnizeaza |
 |---|---|
-| **Yahoo Finance** (yfinance) | Preturi curente, istoric preturi, metrici (P/E, market cap, etc.), rezultate financiare trimestriale/anuale. |
+| **Yahoo Finance** (yfinance) | Preturi curente, istoric preturi, metrici brute (market cap, sector, etc.). **NU folosim metricile calculate de Yahoo** (P/E, P/B, etc.) — sunt frecvent gresite pentru BVB. |
+| **Site-uri oficiale companii** (Investor Relations) | Rapoarte financiare (Excel/PDF), Bugete de Venituri si Cheltuieli (BVC), numar de actiuni. Sursa primara pentru datele financiare brute. |
+| **BVB.ro** | Pagina simbol (PER, PBV, EPS, DIVY — valori publicate oficial), calendar financiar. |
 | **Tradeville CSV** | Portofoliul initial: simboluri, cantitati, preturi de achizitie. Importat o singura data. |
-| **BVB.ro scraping** (viitor) | Calendar financiar, bugete anuale, link-uri Investor Relations. |
+| **metrics_calculator.py** (intern) | Calculeaza trailingPE, forwardPE, EPS din datele brute extrase din Excel-uri/PDF-uri. Nu ne bazam pe Yahoo pentru aceste metrici. |
+| **bvc_parser.py** (intern) | Parseaza fisiere Excel (.xlsx) si PDF pentru a extrage BVC (buget) si date financiare brute. |
+
+## Metrici financiare (calculate intern)
+
+| Termen | Definitie | Formula |
+|---|---|---|
+| **TTM** | Trailing Twelve Months — ultimele 12 luni (4 trimestre) de la cea mai recenta raportare. | Suma ultimelor 4 trimestre dupa data. |
+| **trailingPE (calculat)** | P/E bazat pe TTM, nu pe anul fiscal anterior. ✅ Calculat pentru 9 companii. | `marketCap / TTM_net_income` |
+| **forwardPE (calculat)** | P/E forward bazat pe BVC (buget), nu pe estimari de analisti (inexistente pentru BVB). ✅ Calculat pentru 6 companii cu BVC. | `marketCap / bvc.net_income`. Daca BVC lipseste, e `null`. |
+| **priceToBook (calculat)** | P/B din bilantul oficial. ⚠️ Doar DN are valoare momentan. | `marketCap / total_equity` (din bilant, nu din Yahoo). |
+| **EPS (calculat)** | Earnings per share TTM. | `TTM_net_income / shares_outstanding` (numar actiuni din BVB.ro). |
+| **BVC** | Buget de Venituri si Cheltuieli — document publicat anual de companiile listate BVB cu proiectiile financiare pentru anul in curs. Contine venituri bugetate, cheltuieli, profit brut/net estimat. ✅ Extras pentru 7 companii. | — |

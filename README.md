@@ -1,9 +1,9 @@
 # BVB Portfolio Dashboard
 
-A self-hosted, real-time portfolio tracker for the Bucharest Stock Exchange (BVB). Fetches live prices from Yahoo Finance, displays key metrics, and provides detailed company profiles with financial charts — all served as a static web dashboard.
+A self-hosted, real-time portfolio tracker for the Bucharest Stock Exchange (BVB). Fetches live prices from Yahoo Finance, calculates proper financial metrics from official company data (not Yahoo's often-wrong values), and displays everything in a dark-themed web dashboard with detailed company profiles.
 
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
-![Python](https://img.shields.io/badge/python-3.11+-blue)
+![Python](https://img.shields.io/badge/python-3.13+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features
@@ -12,55 +12,88 @@ A self-hosted, real-time portfolio tracker for the Bucharest Stock Exchange (BVB
 - **Portfolio KPIs** — total invested, current value, P/L, overall return percentage at a glance
 - **Holdings table** — sortable table with price, change %, allocation weight, and unrealized P/L per position
 - **Sector allocation pie chart** — breakdown by economic sector (Banking, IT, Energy, Agriculture, etc.)
+- **Dividend tracker** — dividend yield, dividend rate, estimated annual dividend income
 - **Benchmark vs BET Index** — compare your portfolio performance against the BET index over custom periods
-- **Company Profile modal** (click any symbol) — deep-dive view with:
-  - Key financial metrics (Market Cap, P/E, P/B, ROE, ROA, Dividend Yield, Beta, D/E, etc.)
-  - Price history chart with period selector (1D → 5Y)
-  - Historical P/E chart
+- **Watchlist** — monitor symbols you don't hold (DIGI, H2O, SMTL) with live prices
+- **Company Profile page** (click any symbol) — deep-dive view with:
+  - Key financial metrics (Market Cap, trailing P/E, forward P/E, P/B, ROE, ROA, Dividend Yield, Beta, D/E, etc.)
+  - Price history chart with period selector (1S → 5A)
+  - Toggle between Profit and Revenue charts
   - Quarterly revenue & net income bar charts (last 12 quarters)
-  - Annual revenue bar chart (last 3–5 years)
-  - Daily trading volume chart
+  - Annual revenue bar chart with BVC (budget) overlay in fuchsia
+  - Calendar timeline with corporate events
 - **"Refresh prices" button** — fetches live prices from the browser (no server reload needed)
-- **Cron-automated updates** — Python script runs on schedule to refresh JSON data files
+- **Cron-automated updates** — 3 Hermes cron jobs update prices daily (07:00, 15:00, 15:30 UTC, L-V)
 - **Dark theme UI** — clean, modern dashboard styled for readability
 
 ## Architecture
 
 ```
-yfinance API (Yahoo Finance)
-        │
-        ▼
-portfolio_updater.py  ──→  bvb_portfolio.json  (private, gitignored)
-company_fetcher.py    ──→  company_data.json   (public financial data)
-        │                        │
-        └────────┬───────────────┘
-                 ▼
-         dashboard.html  (static, served via nginx)
-                 │
-                 ▼
-            Browser (Chart.js for charts)
+┌────────────────────────────────────────────────────────────────────┐
+│ Cron jobs Hermes (3 joburi, livrare Telegram)                      │
+│  07:00 UTC L-V  →  portfolio_updater.py (yfinance)                 │
+│  15:00 UTC L-V  →  portfolio_updater.py (yfinance)                 │
+│  15:30 UTC L-V  →  company_fetcher.py (yfinance 5Y prices)         │
+│                    │                                                │
+│                    ▼                                                │
+│               db.upsert_prices() → price_history (SQLite)           │
+│               db.export_to_json() → company_data.json               │
+└────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│ Browser (fetch /refresh, /company?symbol=X)                        │
+│                    │                                                │
+│                    ▼                                                │
+│ nginx :8080 (static files: dashboard.html, company.html)           │
+│                    │                                                │
+│                    ▼                                                │
+│ Server Python :8089 (backend API, proxied by nginx)                │
+│   GET  /company?symbol=X  →  db.get_company()  →  JSON             │
+│   GET  /companies         →  db.list_companies() →  JSON           │
+│   POST /refresh           →  portfolio_updater.py                   │
+│   POST /watchlist         →  add/remove symbols                     │
+│   POST /scrape-callback   →  scraping pipeline callback             │
+│                    │                                                │
+│                    ▼                                                │
+│              bvb_dashboard.db (SQLite, WAL mode)                    │
+└────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│ Scraping pipeline (manual trigger via Hermes webhook)               │
+│   Search company site → download Excel/PDF → parse financial data   │
+│   → upsert into SQLite (quarterly, annual, bvc, calculated_metrics) │
+│   → export_to_json() → company_data.json                            │
+│                                                                     │
+│   BVC source: company.ro /adunari-generale-ale-actionarilor/ PDF    │
+│   BVB.ro: curl static HTML for PER, PBV, EPS, DIVY, shares          │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-- **`portfolio_updater.py`** — fetches current prices from Yahoo Finance, updates `bvb_portfolio.json`
-- **`company_fetcher.py`** — fetches quarterly/annual financials, key metrics, and price history; saves to `company_data.json`
-- **`dashboard.html`** — fully self-contained static dashboard; loads JSON data at boot and can fetch live prices on demand
-- **nginx** — serves the static files as a web app (Docker or bare-metal)
+### Data flow principles
+
+- **SQLite is the single source of truth** (`bvb_dashboard.db`). `company_data.json` is a read-only export for the frontend.
+- **Green zone** (`price_history`): only `company_fetcher.py` writes here (yfinance prices).
+- **Red zone** (`companies`, `quarterly`, `annual`, `bvc`, `calendar`, `calculated_metrics`): written only via curated scraping, never by automated scripts.
+- **Market cap** is calculated dynamically as `shares_outstanding × last close` — never stored.
+- **JSON sanitizer** prevents NaN/Inf from yfinance poisoning the frontend.
 
 ## Tech Stack
 
 | Layer         | Technology                          |
 |---------------|-------------------------------------|
+| Database      | SQLite 3 (WAL mode)                 |
 | Data fetching | Python 3, `yfinance`                |
-| Data format   | JSON files                          |
+| Backend API   | Python `http.server` (port 8089)    |
 | Frontend      | Vanilla HTML/CSS/JS, Chart.js 4     |
-| Server        | nginx (Docker or bare-metal)        |
-| Automation    | Hermes Agent cron jobs              |
+| Static server | nginx (port 8080, proxy to :8089)   |
+| Automation    | Hermes Agent cron jobs + webhooks   |
+| Scraping      | Playwright via browserless (CDP)    |
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.11+ with `yfinance` (`pip install yfinance`)
+- Python 3.11+ with `yfinance`, `openpyxl`, `pymupdf`
 - nginx (or any static file server)
 - Git
 
@@ -84,60 +117,74 @@ nano bvb_portfolio.json  # add your tickers, share counts, and purchase prices
 ### 3. Install Python dependencies
 
 ```bash
-pip install yfinance
+pip install yfinance openpyxl pymupdf
 ```
 
-### 4. Fetch initial data
+### 4. Initialize database
 
 ```bash
-python3 portfolio_updater.py      # fetches live prices
-python3 company_fetcher.py        # fetches company financials
+python3 db.py   # creates bvb_dashboard.db with all tables
 ```
 
-### 5. Serve the dashboard
+### 5. Fetch initial data
 
 ```bash
-# Quick local test (Python built-in server)
-python3 -m http.server 8080
+python3 portfolio_updater.py      # fetches live prices → SQLite + JSON
+python3 company_fetcher.py        # fetches company financials → price_history
+python3 json_sanitizer.py         # sanitize JSON for the browser
+```
 
-# Or with nginx/Docker (recommended for production)
-docker run -d --name dashboard \
-  -v $(pwd):/usr/share/nginx/html:ro \
-  -p 80:80 nginx:alpine
+### 6. Serve the dashboard
+
+```bash
+# Start the Python API server
+python3 server/server.py &
+
+# Or with nginx (recommended for production)
+# Configure nginx to serve /financial-dashboard as static files
+# and proxy /company, /refresh, /watchlist to localhost:8089
 ```
 
 Open `http://localhost:8080` (or your server's IP) in a browser.
 
-### 6. Automate price updates (optional)
+### 7. Automate price updates (optional)
 
-Set up a cron job to run the updater periodically:
+Set up Hermes cron jobs:
 
 ```bash
-# Example: every 30 minutes on weekdays
-*/30 * * * 1-5 cd /financial-dashboard && python3 portfolio_updater.py
-```
-
-Or use Hermes Agent's built-in cron:
-
-```
 hermes cron create \
-  --name "bvb-price-update" \
-  --schedule "30m" \
-  --prompt "Run portfolio_updater.py and company_fetcher.py in /financial-dashboard"
+  --name "bvb-price-morning" \
+  --schedule "0 7 * * 1-5" \
+  --prompt "Run python3 /financial-dashboard/portfolio_updater.py"
 ```
 
 ## File Overview
 
-| File                         | Purpose                                      | Committed? |
-|------------------------------|----------------------------------------------|------------|
-| `dashboard.html`             | Main web dashboard (HTML/CSS/JS + Chart.js)  | Yes        |
-| `portfolio_updater.py`       | Fetches live prices from Yahoo Finance       | Yes        |
-| `company_fetcher.py`         | Fetches company financials & metrics         | Yes        |
-| `bvb_portfolio.json`         | Your actual holdings (prices, P/L, shares)   | **No**     |
-| `bvb_portfolio.example.json` | Anonymized template for new setups           | Yes        |
-| `company_data.json`          | Public company data (metrics, financials)    | Yes        |
-| `FEATURES.md`                | Detailed feature roadmap & planning doc      | Yes        |
-| `.gitignore`                 | Git ignore rules                             | Yes        |
+| File                         | Purpose                                           | Committed? |
+|------------------------------|---------------------------------------------------|------------|
+| `dashboard.html`             | Main web dashboard (HTML/CSS/JS + Chart.js)       | Yes        |
+| `company.html`               | Company Profile page (click on symbol)            | Yes        |
+| `company_profile.js`         | Chart rendering, metrics display, calendar        | Yes        |
+| `style.css`                  | Shared dark theme CSS                             | Yes        |
+| `portfolio_updater.py`       | Fetches live prices from Yahoo Finance            | Yes        |
+| `company_fetcher.py`         | Fetches 5Y price history → price_history table    | Yes        |
+| `metrics_calculator.py`      | Calculates trailingPE, forwardPE, EPS from raw    | Yes        |
+| `bvc_parser.py`              | Parses BVC (budget) from Excel/PDF files          | Yes        |
+| `db.py`                      | SQLite data access layer (schema, queries, export)| Yes        |
+| `json_sanitizer.py`          | safe_json_dumps() — prevents NaN in JSON          | Yes        |
+| `migrate_to_sqlite.py`       | One-shot: migrate JSON → SQLite                   | Yes        |
+| `server/server.py`           | Python HTTP API (:8089)                           | Yes        |
+| `server/handlers/`           | HTTP handlers (refresh, watchlist)                | Yes        |
+| `server/scraper/trigger.py`  | Webhook callback handler for scraping pipeline    | Yes        |
+| `bvb_dashboard.db`           | SQLite database (curated financial data)     | Yes        |
+| `company_data.json`          | Derived JSON export (regenerated from DB)    | Yes        |
+| `bvb_portfolio.json`         | Your actual holdings (prices, P/L, shares)        | **No**     |
+| `bvb_portfolio.example.json` | Anonymized template for new setups                | Yes        |
+| `PRD.md`                     | Product requirements document                     | Yes        |
+| `FEATURES.md`                | Detailed feature roadmap & planning doc           | Yes        |
+| `CONTEXT.md`                 | Glossary of financial terms and formulas          | Yes        |
+| `HANDOFF.md`                 | Session handoff notes                             | Yes        |
+| `README.md`                  | This file                                         | Yes        |
 
 ## Supported Tickers
 
@@ -145,11 +192,13 @@ The dashboard supports BVB-listed companies via Yahoo Finance's `.RO` suffix:
 
 - `TLV.RO` — Banca Transilvania
 - `SNP.RO` — OMV Petrom
-- `SNG.RO` — Romgaz
-- `FP.RO` — Fondul Proprietatea
-- `H2O.RO` — Sphera Franchise Group
-- `BENTO.RO` — Bento
+- `BENTO.RO` — 2B Intelligent Soft
 - `SAFE.RO` — Safetech Innovations
+- `PE.RO` — Premier Energy
+- `DN.RO` — DN Agrar Group
+- `H2O.RO` — Hidroelectrica
+- `DIGI.RO` — Digi Communications
+- `SMTL.RO` — Simtel Team
 - ... and any other BVB ticker available on Yahoo Finance
 
 Structured products (e.g., `EBTLV*` tickers issued by Erste Bank) are not available on Yahoo Finance and are skipped during price fetching.
@@ -164,15 +213,26 @@ Structured products (e.g., `EBTLV*` tickers issued by Erste Bank) are not availa
 
 ## Roadmap
 
-See [FEATURES.md](FEATURES.md) for the full feature plan. Highlights planned:
+See [FEATURES.md](FEATURES.md) for the full feature plan (including items planned for future iterations).
 
-- [ ] Budget overlay + forward P/E estimation (requires BVB scraping)
-- [ ] Dividend tracker with ex-date calendar
-- [ ] Watchlist for monitored (non-held) tickers
-- [ ] Financial calendar (earnings dates, AGM, dividends)
-- [ ] Transaction history import (CSV → JSON)
-- [ ] Price alerts via Telegram
-- [ ] IR (Investor Relations) links auto-discovery
+### ✅ Implemented
+- Portfolio KPIs + holdings table
+- Company Profile page (metrics, price chart, quarterly/annual results, BVC overlay, calendar)
+- Sector allocation pie chart
+- Dividend tracker (yield, rate, estimated annual income)
+- Watchlist with add/delete and live prices
+- Price refresh button
+- Cron-automated updates (3 Hermes jobs)
+- SQLite persistence with green/red zone separation
+- BVC (budget) extraction from official company PDFs — 7 companies done
+- Calculated trailingPE, forwardPE, EPS from official data (not Yahoo)
+
+### 🔜 Planned
+- Dividend calendar (ex-date tracking)
+- Transaction history import (CSV)
+- Price alerts via Telegram
+- IR (Investor Relations) links auto-discovery
+- Benchmark vs BET Index in portfolio view
 
 ## License
 

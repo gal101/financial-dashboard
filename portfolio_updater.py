@@ -28,6 +28,8 @@ import yfinance as yf
 # Config — everything in /financial-dashboard/
 BASE_DIR = "/financial-dashboard"
 JSON_FILE = os.path.join(BASE_DIR, "bvb_portfolio.json")
+WATCHLIST_FILE = os.path.join(BASE_DIR, "watchlist.json")
+WATCHLIST_DATA_FILE = os.path.join(BASE_DIR, "watchlist_data.json")
 
 
 YAHOO_SUFFIX = ".RO"
@@ -91,6 +93,15 @@ def load_portfolio():
         return json.load(f)
 
 
+def load_watchlist():
+    """Load watchlist symbols. Returns empty list if file missing."""
+    if not os.path.exists(WATCHLIST_FILE):
+        return []
+    with open(WATCHLIST_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get("simbols", [])
+
+
 def save_portfolio(data):
     with open(JSON_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -127,10 +138,14 @@ def main():
     print()
 
     portfolio = load_portfolio()
-    symbols = [h["simbol"] for h in portfolio["holdings"]]
+    portfolio_symbols = [h["simbol"] for h in portfolio["holdings"]]
+    
+    # Also fetch watchlist symbols (deduplicated)
+    watchlist_symbols = load_watchlist()
+    all_symbols = list(dict.fromkeys(portfolio_symbols + watchlist_symbols))  # dedup, preserve order
     prices = {}
 
-    for sym in symbols:
+    for sym in all_symbols:
         result = fetch_price(sym)
         if result:
             prices[sym] = result
@@ -171,8 +186,27 @@ def main():
     m["last_price_update"] = datetime.now(timezone.utc).isoformat()
 
     save_portfolio(portfolio)
+    
+    # Write watchlist prices (camelCase keys for JS consumer)
+    if watchlist_symbols:
+        wl_prices = {}
+        for sym in watchlist_symbols:
+            if sym in prices:
+                p = prices[sym]
+                wl_prices[sym] = {
+                    "price": p["price"],
+                    "changePct": p["change_pct"],  # camelCase for wlRender()
+                }
+        wl_data = {
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "prices": wl_prices,
+        }
+        with open(WATCHLIST_DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(wl_data, f, ensure_ascii=False, indent=2)
+        print(f"  Watchlist salvat: {len(wl_prices)} simboluri")
+    
     print_summary(portfolio)
-    print(f"  Preturi actualizate: {updated}/{len(symbols)}")
+    print(f"  Preturi actualizate: {updated}/{len(all_symbols)}")
     # Also refresh company financial data
     import subprocess
     print("\nActualizare si date financiare...")

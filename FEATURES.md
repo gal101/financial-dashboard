@@ -10,23 +10,23 @@
 
 ## Cuprins
 
-1. [Company Profile](#1-company-profile)
-   1.1 [Antet + metrici](#11-antet--metrici)
-   1.2 [Price chart + PE chart](#12-price-chart--pe-chart)
-   1.3 [Volum tranzactionat](#13-volum-tranzactionat)
-   1.4 [Rezultate trimestriale (12 trimestre)](#14-rezultate-trimestriale-12-trimestre)
-   1.5 [Rezultate anuale + buget overlay](#15-rezultate-anuale--buget-overlay)
-   1.6 [Forward PE estimat](#16-forward-pe-estimat)
-   1.7 [Calendar financiar + urmatorul eveniment](#17-calendar-financiar--urmatorul-eveniment)
-   1.8 [Link site companie (IR)](#18-link-site-companie-ir)
-   1.9 [Chat AI floating window](#19-chat-ai-floating-window)
-2. [Stiri + articole](#2-stiri--articole)
-3. [Benchmark vs BET Index](#3-benchmark-vs-bet-index)
-4. [Alocare pe sectoare](#4-alocare-pe-sectoare)
-5. [Watchlist](#5-watchlist)
-6. [Dividend tracker](#6-dividend-tracker)
-7. [Istoric tranzactii](#7-istoric-tranzactii)
-8. [Alerte de pret](#8-alerte-de-pret)
+1. [Company Profile](#1-company-profile) ✅
+   1.1 [Antet + metrici](#11-antet--metrici) ✅
+   1.2 [Price chart + PE chart](#12-price-chart--pe-chart) ✅
+   1.3 [Volum tranzactionat](#13-volum-tranzactionat) ❌
+   1.4 [Rezultate trimestriale (12 trimestre)](#14-rezultate-trimestriale-12-trimestre) ✅
+   1.5 [Rezultate anuale + buget overlay](#15-rezultate-anuale--buget-overlay) ✅
+   1.6 [Forward PE estimat](#16-forward-pe-estimat) ❌
+   1.7 [Calendar financiar + urmatorul eveniment](#17-calendar-financiar--urmatorul-eveniment) ✅
+   1.8 [Link site companie (IR)](#18-link-site-companie-ir) ❌
+   1.9 [Chat AI floating window](#19-chat-ai-floating-window) ❌
+2. [Stiri + articole](#2-stiri--articole) ❌
+3. [Benchmark vs BET Index](#3-benchmark-vs-bet-index) ✅
+4. [Alocare pe sectoare](#4-alocare-pe-sectoare) ✅
+5. [Watchlist](#5-watchlist) ✅
+6. [Dividend tracker](#6-dividend-tracker) ✅
+7. [Istoric tranzactii](#7-istoric-tranzactii) ❌
+8. [Alerte de pret](#8-alerte-de-pret) ❌
 
 ---
 

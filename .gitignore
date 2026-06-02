@@ -6,22 +6,36 @@
 #   - profit/pierdere
 #   - istoric tranzactii
 bvb_portfolio.json
+bvb_portfolio.backup.json
 
-# === PYTHON ===
+# Runtime artifacts
+watchlist_data.json
+pending_scrapes.json
+scrape_results/
+
+# SQLite database (commit-able — contains curated financial data)
+financial_data.db
+db_backups/
+
+# Server runtime
+server.log
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
 .venv/
 venv/
+server/**/__pycache__/
 
-# === SISTEM ===
+# Sistem
 .DS_Store
 Thumbs.db
 *.swp
 *.swo
 *~
 
-# === ENV ===
+# Env
 .env
 .env.*

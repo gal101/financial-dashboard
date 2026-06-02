@@ -64,54 +64,12 @@
 </div>
 <div class="foot"><p>Portofoliu BVB - Yahoo Finance API - Server UTC</p><p>BVB: Luni-Vineri 10:00-18:30 EEST</p></div>
 
-<!-- === COMPANY DETAIL MODAL === -->
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal()">&times;</button>
-    <div class="modal-hdr">
-      <div class="modal-hdr-l">
-        <h2 id="m-sym">-</h2>
-        <div id="m-name" style="font-size:.9rem;color:var(--dim)">-</div>
-        <div class="tags" id="m-tags"></div>
-      </div>
-      <div id="m-price-box" style="text-align:right">
-        <div id="m-price" style="font-size:1.6rem;font-weight:700">-</div>
-        <div id="m-change" style="font-size:.85rem">-</div>
-      </div>
-    </div>
-    <div class="modal-body" id="m-body">
-      <div id="m-summary" class="modal-summary"></div>
-      <div class="mm-row" id="m-metrics"></div>
-      <div class="mc-row">
-        <div class="mc"><h3>&#128200; Evolutie pret (1 an)</h3><div class="mc-wrap tall"><canvas id="mc-price"></canvas></div></div>
-        <div class="mc"><h3>&#128200; Volum tranzactionat</h3><div class="mc-wrap tall"><canvas id="mc-vol"></canvas></div></div>
-      </div>
-      <div id="m-fin-section" style="display:none">
-        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:16px 0 10px">Rezultate financiare</div>
-        <div class="mc-row">
-          <div class="mc"><h3>&#128176; Venituri trimestriale</h3><div class="mc-wrap"><canvas id="mc-rev"></canvas></div></div>
-          <div class="mc"><h3>&#128200; Profit net trimestrial</h3><div class="mc-wrap"><canvas id="mc-ni"></canvas></div></div>
-        </div>
-        <div class="mc-row">
-          <div class="mc"><h3>EPS pe trimestru</h3><div class="mc-wrap"><canvas id="mc-eps"></canvas></div></div>
-          <div class="mc"><h3>Venituri anuale</h3><div class="mc-wrap"><canvas id="mc-ann-rev"></canvas></div></div>
-        </div>
-      </div>
-      <div id="m-news-section">
-        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:16px 0 10px">Stiri recente</div>
-        <div id="m-news" style="color:var(--dim);font-size:.85rem;padding:12px;text-align:center">Se incarca stirile...</div>
-      </div>
-      <div class="modal-btns">
-        <a id="m-yahoo-link" href="#" target="_blank" class="btn" style="text-decoration:none">Deschide pe Yahoo Finance</a>
-        <button class="ai-btn" id="m-ai-btn">&#129302; Analizeaza cu AI</button>
-      </div>
-    </div>
-  </div>
-</div>
+
 
 <script>
 // === PORTFOLIO DATA ===
 var DATA=null;
+var SVR=window.location.protocol+'//'+window.location.hostname+':8089';
 
 var STOCKS=[];
 var TURBO=[];
@@ -206,26 +164,39 @@ function fmt(n,d){if(n===null||n===undefined||isNaN(n))return'-';return Number(n
 function pnl(c){return c>0?'pos':c<0?'neg':'neu'}
 function totalVal(){var a=0;DATA.holdings.forEach(function(h){a+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});return a}
 
-// === YAHOO FINANCE ===
+// === YAHOO FINANCE (via server proxy) ===
 var YB='https://query1.finance.yahoo.com/v8/finance/chart/';
 function ys(s){if(s.indexOf('EBTLV')===0)return null;return s+'.RO'}
-function fp(s){
-  var y=ys(s);if(!y)return Promise.resolve(null);
-  var ctrl=new AbortController();
-  var tid=setTimeout(function(){ctrl.abort()},6000);
-  return fetch(YB+y+'?interval=1d&range=5d',{signal:ctrl.signal}).then(function(r){clearTimeout(tid);if(!r.ok)throw r.status;return r.json()}).
-  then(function(d){var m=d.chart.result;if(!m||!m[0])return null;var meta=m[0].meta;var p=meta.regularMarketPrice;if(!p)return null;var prev=meta.chartPreviousClose||meta.previousClose;return {price:Math.round(p*10000)/10000,chg:Math.round(((p-prev)/prev*100)*100)/100}}).
-  catch(function(){return null})
-}
 
+// Refresh prices via our Python server (no CORS issues)
 function rp(){
   var btn=document.getElementById('br');if(btn){btn.disabled=true;btn.textContent='...'}
-  var syms=[];DATA.holdings.forEach(function(h){if(syms.indexOf(h.simbol)<0)syms.push(h.simbol)});
-  WATCHLIST.forEach(function(s){if(syms.indexOf(s)<0)syms.push(s)});
-  var i=0;
-  function next(){if(i>=syms.length){ra();ul();wlRender();if(btn){btn.disabled=false;btn.textContent='Actualizeaza'}return}
-  var s=syms[i++];fp(s).then(function(r){if(r)prices[s]=r;return new Promise(function(res){setTimeout(res,400)})}).then(next)}
-  next()
+  fetch(SVR+'/refresh',{method:'POST'})
+    .then(function(r){return r.json()})
+    .then(function(result){
+      if(result.success && result.data){
+        DATA=result.data;
+        STOCKS=DATA.holdings.filter(function(h){return h.tip==='actiuni'});
+        TURBO=DATA.holdings.filter(function(h){return h.tip!=='actiuni'});
+        STOCKS_ORIG=STOCKS.slice();TURBO_ORIG=TURBO.slice();
+        // Update prices from portfolio data
+        DATA.holdings.forEach(function(h){
+          prices[h.simbol]={price:h.pret_actual_RON,chg:h.variatie_pret_pct};
+        });
+        // Update watchlist prices if available
+        if(result.watchlist_data&&result.watchlist_data.prices){
+          Object.keys(result.watchlist_data.prices).forEach(function(s){
+            if(result.watchlist_data.prices[s])prices[s]=result.watchlist_data.prices[s];
+          });
+        }
+        ra();ul();wlRender();
+      }
+      if(btn){btn.disabled=false;btn.textContent='Actualizeaza'}
+    })
+    .catch(function(e){
+      console.log('Refresh failed:',e);
+      if(btn){btn.disabled=false;btn.textContent='Actualizeaza'}
+    });
 }
 
 function ul(){
@@ -233,11 +204,27 @@ function ul(){
   document.getElementById('lu').textContent=eest.toISOString().replace('T',' ').substring(0,19)+' EEST'
 }
 
+// BVB non-weekend holidays 2026 — from https://bvb.ro/TradingAndStatistics/TradingSessionSchedule
+var BVB_HOLIDAYS_2026 = [
+  "2026-01-01","2026-01-02","2026-01-06","2026-01-07",  // New Year, Epiphany, St John
+  "2026-04-10","2026-04-13",                              // Orthodox Good Friday, Easter Monday
+  "2026-05-01",                                            // Labor Day
+  "2026-06-01",                                            // Whit Monday (Rusalii)
+  "2026-11-30","2026-12-01",                              // St Andrew, National Day
+  "2026-12-25"                                             // Christmas
+];
+
 function ums(){
-  var n=new Date();var h=n.getUTCHours();var m=n.getUTCMinutes();var d=n.getUTCDay();
-  var wd=d>=1&&d<=5;var op=wd&&h+m/60>=8&&h+m/60<16.5;
+  var n=new Date();
+  var y=n.getFullYear(),m=String(n.getMonth()+1).padStart(2,'0'),dt=String(n.getDate()).padStart(2,'0');
+  var today=y+'-'+m+'-'+dt;
+  var holiday=BVB_HOLIDAYS_2026.indexOf(today)>=0;
+  var h=n.getUTCHours();var mn=n.getUTCMinutes();var d=n.getUTCDay();
+  var wd=d>=1&&d<=5;
+  var op=wd&&!holiday&&h+mn/60>=7&&h+mn/60<15;
   var b=document.getElementById('ms');var dot=document.getElementById('md');var t=document.getElementById('mt');
-  if(op){b.className='mkt o';dot.className='dot g';t.textContent='Piata deschisa'}else{b.className='mkt c';dot.className='dot y';t.textContent='Piata inchisa'}
+  if(op){b.className='mkt o';dot.className='dot g';t.textContent='Piata deschisa'}
+  else{b.className='mkt c';dot.className='dot y';t.textContent=holiday?'Piata inchisa (sarbatoare)':'Piata inchisa'}
 }
 
 // === RENDER ===
@@ -414,16 +401,10 @@ function updateSectorChart(){
   sc.update('none');
 }
 
-// === COMPANY MODAL ===
+// === COMPANY DATA CACHE ===
 var CD=null; // company data cache
-var mcCharts={};
 
-function closeModal(e){
-  if(e&&e.target!==document.getElementById('modal'))return;
-  document.getElementById('modal').style.display='none';
-  // Destroy charts to free memory
-  Object.keys(mcCharts).forEach(function(k){if(mcCharts[k]){mcCharts[k].destroy();delete mcCharts[k]}});
-}
+function fmtPct(n){if(n===null||n===undefined||isNaN(n))return'-';return(n>=0?'+':'')+Number(n*100).toFixed(2)+'%'}
 
 function fmtLarge(n){
   if(n===null||n===undefined||isNaN(n))return'-';
@@ -685,6 +666,7 @@ function openAiAnalysis(simbol, company, price){
 
 // === WATCHLIST ===
 var WATCHLIST = [];
+var WATCHLIST_DATA = {};  // prices from watchlist_data.json
 
 function wlLoad() {
   fetch('watchlist.json?_=' + Date.now())
@@ -694,13 +676,23 @@ function wlLoad() {
       wlRender();
     })
     .catch(function() { WATCHLIST = []; wlRender(); });
+  // Also try to load watchlist prices
+  fetch('watchlist_data.json?_=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      WATCHLIST_DATA = data.prices || {};
+      // Merge into prices dict
+      Object.keys(WATCHLIST_DATA).forEach(function(s) {
+        if (WATCHLIST_DATA[s]) prices[s] = WATCHLIST_DATA[s];
+      });
+      wlRender();
+    })
+    .catch(function() {});
 }
 
 function wlSave() {
-  var data = { simbols: WATCHLIST };
-  // Can't write JSON from browser JS — we store in memory and rely on
-  // the user to manage watchlist.json manually or via future backend
-  console.log('Watchlist:', JSON.stringify(data));
+  // Server handles persistence. This function kept for reference.
+  console.log('Watchlist saved via server');
 }
 
 function wlAdd() {
@@ -711,14 +703,39 @@ function wlAdd() {
     alert('Simbolul ' + s + ' este deja in watchlist.');
     return;
   }
-  WATCHLIST.push(s);
-  input.value = '';
-  wlRender();
+  // Add via server (persists to disk)
+  fetch(SVR + '/watchlist', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({symbol: s})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(result) {
+    if (result.success) {
+      WATCHLIST = result.watchlist.simbols || [];
+      input.value = '';
+      wlRender();
+      // If scraping was triggered, show notification
+      if (result.scraping_triggered) {
+        console.log('Scraping triggered for ' + s + ' - data will appear soon');
+      }
+    } else {
+      alert('Eroare: ' + (result.error || 'necunoscuta'));
+    }
+  })
+  .catch(function() { alert('Nu se poate conecta la server.'); });
 }
 
 function wlDelete(simbol) {
-  WATCHLIST = WATCHLIST.filter(function(x) { return x !== simbol; });
-  wlRender();
+  fetch(SVR + '/watchlist?symbol=' + encodeURIComponent(simbol), {method: 'DELETE'})
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.success) {
+        WATCHLIST = result.watchlist.simbols || [];
+        wlRender();
+      }
+    })
+    .catch(function() {});
 }
 
 function wlRender() {
@@ -768,10 +785,6 @@ function wlRender() {
   wlLoad();
   ums();ul();
   setInterval(ums,60000);
-  // auto-refresh live prices after 2s
-  setTimeout(function(){
-    if(typeof rp==='function')rp();
-  },2000);
 })();
 </script>
 </body>
