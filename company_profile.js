@@ -64,7 +64,23 @@ function renderMetrics(metrics) {
   }
   if (metrics.priceToBook && metrics.priceToBook > 0) items.push({l: 'Price/Book', v: metrics.priceToBook.toFixed(2)});
   if (metrics.dividendYield && metrics.dividendYield > 0) {
-    items.push({l: 'Dividend', v: metrics.dividendYield.toFixed(2) + '%'});
+    var dv = metrics.dividendYield.toFixed(2) + '%';
+    if (metrics.dividend && metrics.dividend > 0) {
+      dv += '<br><span style="font-size:.65rem;color:var(--dim)">' + metrics.dividend.toFixed(4) + ' RON/act</span>';
+    }
+    // Total dividend for user's position
+    if (PORTFOLIO && PORTFOLIO.holdings) {
+      for (var hi = 0; hi < PORTFOLIO.holdings.length; hi++) {
+        if (PORTFOLIO.holdings[hi].simbol === SIMBOL) {
+          var shares = PORTFOLIO.holdings[hi].actiuni;
+          if (shares && metrics.dividend && metrics.dividend > 0) {
+            dv += '<br><span style="font-size:.65rem;color:var(--dim)">Al tau: ' + (metrics.dividend * shares).toFixed(2) + ' RON</span>';
+          }
+          break;
+        }
+      }
+    }
+    items.push({l: 'Dividend', v: dv});
   }
   if (metrics.profitMargins) items.push({l: 'Marja profit', v: (metrics.profitMargins * 100).toFixed(2) + '%'});
 

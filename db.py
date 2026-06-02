@@ -202,6 +202,11 @@ def get_company(conn: sqlite3.Connection, symbol: str) -> dict:
     ).fetchone()
     result["metrics"] = dict(metrics) if metrics else {}
     
+    # Compute dividend_yield if missing but raw data exists
+    if result.get("dividend") and result.get("ref_price"):
+        if not result["metrics"].get("dividend_yield"):
+            result["metrics"]["dividend_yield"] = round((result["dividend"] / result["ref_price"]) * 100, 2)
+    
     # Price history
     prices = conn.execute(
         "SELECT date, close, open, high, low, volume, value FROM price_history WHERE symbol = ? ORDER BY date",
