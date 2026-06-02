@@ -1,0 +1,111 @@
+{
+  "metadata": {
+    "sursa": "DEMO",
+    "valuta": "RON",
+    "data_export": "2025",
+    "total_investit_RON": 10296.47,
+    "total_evaluare_RON": 15367.2,
+    "total_profit_pierdere_RON": 5070.73,
+    "return_total_pct": 49.25,
+    "numar_pozitii": 7,
+    "last_price_update": "2026-05-31T18:58:01.985866+00:00",
+    "_comment": "DATE DEMO — toate pozitiile au 100 actiuni. Nu suprascrie cu cron/refresh!"
+  },
+  "realized_pnl": {
+    "_comment": "Zeroed for demo",
+    "total_realized_loss_RON": 0
+  },
+  "holdings": [
+    {
+      "simbol": "BENTO",
+      "nume": "2B Intelligent Soft",
+      "tip": "actiuni",
+      "actiuni": 100,
+      "pret_medie_achizitie_RON": 11.717,
+      "pret_actual_RON": 8.88,
+      "valoare_evaluata_RON": 888.0,
+      "profit_pierdere_RON": -283.7,
+      "investitie_initiala_RON": 1171.7,
+      "variatie_pret_pct": -24.21,
+      "pondere_portofoliu_pct": 5.78
+    },
+    {
+      "simbol": "DN",
+      "nume": "Dn Agrar Group",
+      "tip": "actiuni",
+      "actiuni": 100,
+      "pret_medie_achizitie_RON": 1.5289,
+      "pret_actual_RON": 3.07,
+      "valoare_evaluata_RON": 307.0,
+      "profit_pierdere_RON": 154.11,
+      "investitie_initiala_RON": 152.89,
+      "variatie_pret_pct": 100.8,
+      "pondere_portofoliu_pct": 2.0
+    },
+    {
+      "simbol": "EBTLVTL19",
+      "nume": "BT Turbo Long",
+      "tip": "struct",
+      "actiuni": 100,
+      "pret_medie_achizitie_RON": 23.3027,
+      "pret_actual_RON": 49.73,
+      "valoare_evaluata_RON": 4973.0,
+      "profit_pierdere_RON": 2642.73,
+      "investitie_initiala_RON": 2330.27,
+      "variatie_pret_pct": 113.41,
+      "pondere_portofoliu_pct": 32.36
+    },
+    {
+      "simbol": "PE",
+      "nume": "Premier Energy Plc",
+      "tip": "actiuni",
+      "actiuni": 100,
+      "pret_medie_achizitie_RON": 40.7885,
+      "pret_actual_RON": 52.4,
+      "valoare_evaluata_RON": 5240.0,
+      "profit_pierdere_RON": 1161.15,
+      "investitie_initiala_RON": 4078.85,
+      "variatie_pret_pct": 28.47,
+      "pondere_portofoliu_pct": 34.1
+    },
+    {
+      "simbol": "SAFE",
+      "nume": "Safetech Innovations",
+      "tip": "actiuni",
+      "actiuni": 100,
+      "pret_medie_achizitie_RON": 1.0387,
+      "pret_actual_RON": 0.92,
+      "valoare_evaluata_RON": 92.0,
+      "profit_pierdere_RON": -11.87,
+      "investitie_initiala_RON": 103.87,
+      "variatie_pret_pct": -11.43,
+      "pondere_portofoliu_pct": 0.6
+    },
+    {
+      "simbol": "SNP",
+      "nume": "OMV Petrom",
+      "tip": "actiuni",
+      "actiuni": 100,
+      "pret_medie_achizitie_RON": 1.0156,
+      "pret_actual_RON": 1.052,
+      "valoare_evaluata_RON": 105.2,
+      "profit_pierdere_RON": 3.64,
+      "investitie_initiala_RON": 101.56,
+      "variatie_pret_pct": 3.58,
+      "pondere_portofoliu_pct": 0.68
+    },
+    {
+      "simbol": "TLV",
+      "nume": "Banca Transilvania",
+      "tip": "actiuni",
+      "actiuni": 100,
+      "pret_medie_achizitie_RON": 23.5733,
+      "pret_actual_RON": 37.62,
+      "valoare_evaluata_RON": 3762.0,
+      "profit_pierdere_RON": 1404.67,
+      "investitie_initiala_RON": 2357.33,
+      "variatie_pret_pct": 59.59,
+      "pondere_portofoliu_pct": 24.48
+    }
+  ]
+}
