@@ -16,6 +16,111 @@ from json_sanitizer import safe_json_dumps
 from db import get_db, get_company, list_companies, backup as db_backup
 from db import upsert_company, upsert_quarterly, upsert_annual, upsert_metrics, export_to_json
 
+streamer = None
+
+def get_offline_fallback(cmd: str, symbol: str) -> dict:
+    import sqlite3
+    from db import get_db
+    
+    if cmd == "Symbol" and symbol:
+        conn = get_db()
+        try:
+            row = conn.execute("SELECT name, shares_outstanding FROM companies WHERE symbol = ?", (symbol,)).fetchone()
+            price_row = conn.execute("SELECT close FROM price_history WHERE symbol = ? ORDER BY date DESC LIMIT 1", (symbol,)).fetchone()
+            price = price_row["close"] if price_row else 0.0
+            name = row["name"] if row else symbol
+            shares = row["shares_outstanding"] if row else 0
+            return {
+                "cmd": "Symbol",
+                "data": {
+                    "Symbol": [symbol],
+                    "Price": [price],
+                    "RefPrice": [price],
+                    "Bid": [price],
+                    "Ask": [price],
+                    "SharesNr": [shares],
+                    "Name": [name]
+                },
+                "is_offline": True
+            }
+        except Exception as e:
+            log.error(f"[fallback] Symbol offline fallback failed: {e}")
+        finally:
+            conn.close()
+            
+    elif cmd == "DailyValues" and symbol:
+        conn = get_db()
+        try:
+            prices = conn.execute("SELECT date, open, high, low, close, volume FROM price_history WHERE symbol = ? ORDER BY date", (symbol,)).fetchall()
+            dates = [p["date"] for p in prices]
+            opens = [p["open"] if p["open"] is not None else p["close"] for p in prices]
+            closes = [p["close"] for p in prices]
+            highs = [p["high"] if p["high"] is not None else p["close"] for p in prices]
+            lows = [p["low"] if p["low"] is not None else p["close"] for p in prices]
+            volumes = [p["volume"] if p["volume"] is not None else 0 for p in prices]
+            return {
+                "cmd": "DailyValues",
+                "data": {
+                    "Symbol": [symbol] * len(prices),
+                    "Date": dates,
+                    "Open": opens,
+                    "High": highs,
+                    "Low": lows,
+                    "Close": closes,
+                    "Volume": volumes
+                },
+                "is_offline": True
+            }
+        except Exception as e:
+            log.error(f"[fallback] DailyValues offline fallback failed: {e}")
+        finally:
+            conn.close()
+            
+    elif cmd == "Portfolio":
+        import os, json
+        pf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bvb_portfolio.json")
+        symbols = []
+        quantities = []
+        avg_prices = []
+        market_prices = []
+        ptypes = []
+        ccys = []
+        accounts = []
+        if os.path.exists(pf_path):
+            try:
+                with open(pf_path) as f:
+                    pf_data = json.load(f)
+                for h in pf_data.get("holdings", []):
+                    symbols.append(h["simbol"])
+                    quantities.append(h["actiuni"])
+                    avg_prices.append(h["pret_medie_achizitie_RON"])
+                    market_prices.append(h["pret_actual_RON"])
+                    ptypes.append("A" if h.get("tip") == "actiuni" else "B")
+                    ccys.append("RON")
+                    accounts.append("!OFFLINE")
+            except Exception as e:
+                log.error(f"[fallback] Portfolio offline fallback failed: {e}")
+        return {
+            "cmd": "Portfolio",
+            "data": {
+                "Account": accounts,
+                "Symbol": symbols,
+                "Quantity": quantities,
+                "AvgPrice": avg_prices,
+                "MarketPrice": market_prices,
+                "PType": ptypes,
+                "Ccy": ccys
+            },
+            "is_offline": True
+        }
+        
+    return {
+        "cmd": cmd,
+        "data": {},
+        "is_offline": True,
+        "error": "offline"
+    }
+
 # ── Logging ──────────────────────────────────────────────────────────────────
 LOG_FILE = os.path.join(os.path.dirname(_server_dir), "server.log")
 logging.basicConfig(
@@ -106,6 +211,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             finally:
                 conn.close()
 
+        elif path == "/transactions":
+            log.info("[api] GET /transactions")
+            conn = get_db()
+            try:
+                rows = conn.execute("SELECT * FROM user_transactions ORDER BY date DESC").fetchall()
+                self._send_json({"transactions": [dict(r) for r in rows]})
+            finally:
+                conn.close()
         else:
             self._send_json({"error": "Not found"}, 404)
 
@@ -141,6 +254,43 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 log.warning(f"[scrape] CALLBACK {symbol} — REJECTED: {handled.get('error')} — {handled.get('details')}")
             self._send_json(handled)
 
+        elif path == "/api/tradeville/request":
+            cmd = body.get("cmd")
+            prm = body.get("prm") or {}
+            symbol = prm.get("symbol")
+            if not symbol and prm.get("search"):
+                symbol = prm.get("search")
+                
+            key = (cmd, symbol)
+            
+            import threading
+            event = threading.Event()
+            
+            global streamer
+            if streamer is None:
+                log.error("[api] TradevilleStreamer is not initialized.")
+                self._send_json({"error": "streamer_uninitialized"}, 500)
+                return
+                
+            if not streamer.authenticated:
+                log.info(f"[api] Streamer not authenticated. Returning offline fallback for {cmd} immediately.")
+                fallback = get_offline_fallback(cmd, symbol)
+                self._send_json(fallback)
+                return
+            req = {"event": event, "response": None}
+            streamer.pending_requests[key] = req
+            streamer.out_queue.put(body)
+            
+            completed = event.wait(timeout=10)
+            
+            # Pop the request safely
+            streamer.pending_requests.pop(key, None)
+            
+            if completed and req["response"] is not None:
+                self._send_json(req["response"])
+            else:
+                fallback = get_offline_fallback(cmd, symbol)
+                self._send_json(fallback)
         else:
             self._send_json({"error": "Not found"}, 404)
 
@@ -316,6 +466,13 @@ def _remove_pending_task(symbol: str):
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    global streamer
+    from db import init_db
+    init_db() # Migrate schema if needed
+    from shared.tradeville_streamer import TradevilleStreamer
+    streamer = TradevilleStreamer()
+    streamer.start()
+    
     server = HTTPServer((SERVER_HOST, SERVER_PORT), DashboardHandler)
     log.info(f"BVB Dashboard API on http://{SERVER_HOST}:{SERVER_PORT}")
     log.info(f"Logging to {LOG_FILE}")
@@ -324,7 +481,9 @@ def main():
     except KeyboardInterrupt:
         log.info("Shutting down...")
         server.shutdown()
-
+    finally:
+        if streamer:
+            streamer.stop()
 
 if __name__ == "__main__":
     main()
