@@ -37,7 +37,10 @@ CREATE TABLE IF NOT EXISTS companies (
     sector TEXT,
     industry TEXT,
     shares_outstanding INTEGER,
-    market_cap REAL
+    market_cap REAL,
+    isin TEXT,
+    earnings REAL,
+    earn_date TEXT
 );
 
 CREATE TABLE IF NOT EXISTS quarterly (
@@ -94,8 +97,23 @@ CREATE TABLE IF NOT EXISTS price_history (
     symbol TEXT NOT NULL,
     date TEXT NOT NULL,
     close REAL NOT NULL,
+    open REAL,
+    high REAL,
+    low REAL,
+    volume INTEGER,
     PRIMARY KEY (symbol, date),
     FOREIGN KEY (symbol) REFERENCES companies(symbol)
+);
+
+CREATE TABLE IF NOT EXISTS user_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    op_type TEXT NOT NULL,
+    symbol TEXT,
+    quantity REAL,
+    price REAL,
+    commission REAL,
+    amount REAL
 );
 """
 
@@ -106,6 +124,24 @@ def init_db(conn: sqlite3.Connection = None) -> sqlite3.Connection:
     if own_conn:
         conn = get_db()
     conn.executescript(SCHEMA)
+    # Check and migrate companies table columns
+    cursor = conn.execute("PRAGMA table_info(companies)")
+    comp_cols = [row["name"] for row in cursor.fetchall()]
+    if comp_cols:
+        if "isin" not in comp_cols:
+            conn.execute("ALTER TABLE companies ADD COLUMN isin TEXT")
+        if "earnings" not in comp_cols:
+            conn.execute("ALTER TABLE companies ADD COLUMN earnings REAL")
+        if "earn_date" not in comp_cols:
+            conn.execute("ALTER TABLE companies ADD COLUMN earn_date TEXT")
+    # Check and migrate price_history table columns
+    cursor = conn.execute("PRAGMA table_info(price_history)")
+    columns = [row["name"] for row in cursor.fetchall()]
+    if columns and "open" not in columns:
+        conn.execute("ALTER TABLE price_history ADD COLUMN open REAL")
+        conn.execute("ALTER TABLE price_history ADD COLUMN high REAL")
+        conn.execute("ALTER TABLE price_history ADD COLUMN low REAL")
+        conn.execute("ALTER TABLE price_history ADD COLUMN volume INTEGER")
     conn.commit()
     return conn
 
@@ -157,7 +193,7 @@ def get_company(conn: sqlite3.Connection, symbol: str) -> dict:
     
     # Price history
     prices = conn.execute(
-        "SELECT date, close FROM price_history WHERE symbol = ? ORDER BY date",
+        "SELECT date, close, open, high, low, volume FROM price_history WHERE symbol = ? ORDER BY date",
         (symbol,)
     ).fetchall()
     result["price_history"] = [dict(r) for r in prices]
@@ -188,10 +224,20 @@ def upsert_prices(conn: sqlite3.Connection, symbol: str, prices: list) -> int:
             close = sanitize_val(p.get("close"))
             if close is None:
                 continue
+            open_val = sanitize_val(p.get("open"))
+            high = sanitize_val(p.get("high"))
+            low = sanitize_val(p.get("low"))
+            volume = sanitize_val(p.get("volume"))
             conn.execute(
-                "INSERT INTO price_history (symbol, date, close) VALUES (?, ?, ?) "
-                "ON CONFLICT(symbol, date) DO UPDATE SET close = excluded.close",
-                (symbol, p["date"], close)
+                "INSERT INTO price_history (symbol, date, close, open, high, low, volume) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(symbol, date) DO UPDATE SET "
+                "close = excluded.close, "
+                "open = COALESCE(excluded.open, open), "
+                "high = COALESCE(excluded.high, high), "
+                "low = COALESCE(excluded.low, low), "
+                "volume = COALESCE(excluded.volume, volume)",
+                (symbol, p["date"], close, open_val, high, low, volume)
             )
             count += 1
         conn.commit()
@@ -211,18 +257,22 @@ def update_market_cap(conn: sqlite3.Connection, symbol: str, market_cap: float):
 
 def upsert_company(conn: sqlite3.Connection, symbol: str, name: str,
                    sector: str = None, industry: str = None,
-                   shares_outstanding: int = None, market_cap: float = None):
+                   shares_outstanding: int = None, market_cap: float = None,
+                   isin: str = None, earnings: float = None, earn_date: str = None):
     """Insert or update a company row."""
     conn.execute("""
-        INSERT INTO companies (symbol, name, sector, industry, shares_outstanding, market_cap)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO companies (symbol, name, sector, industry, shares_outstanding, market_cap, isin, earnings, earn_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(symbol) DO UPDATE SET
             name = COALESCE(excluded.name, name),
             sector = COALESCE(excluded.sector, sector),
             industry = COALESCE(excluded.industry, industry),
             shares_outstanding = COALESCE(excluded.shares_outstanding, shares_outstanding),
-            market_cap = COALESCE(excluded.market_cap, market_cap)
-    """, (symbol, name, sector, industry, shares_outstanding, sanitize_val(market_cap)))
+            market_cap = COALESCE(excluded.market_cap, market_cap),
+            isin = COALESCE(excluded.isin, isin),
+            earnings = COALESCE(excluded.earnings, earnings),
+            earn_date = COALESCE(excluded.earn_date, earn_date)
+    """, (symbol, name, sector, industry, shares_outstanding, sanitize_val(market_cap), isin, sanitize_val(earnings), earn_date))
 
 
 def upsert_quarterly(conn: sqlite3.Connection, symbol: str, entries: list):
@@ -328,6 +378,9 @@ def export_to_json(output_path: str = None) -> str:
                 "industry": comp.get("industry"),
                 "marketCap": comp.get("market_cap"),
                 "sharesOutstanding": comp.get("shares_outstanding"),
+                "isin": comp.get("isin"),
+                "earnings": comp.get("earnings"),
+                "earnDate": comp.get("earn_date"),
                 "trailingPE": metrics.get("trailing_pe"),
                 "forwardPE": metrics.get("forward_pe"),
                 "eps": metrics.get("eps"),
@@ -358,7 +411,14 @@ def export_to_json(output_path: str = None) -> str:
                 for a in comp.get("annual", [])
             ],
             "price_history": [
-                {"date": p["date"], "close": p["close"]}
+                {
+                    "date": p["date"],
+                    "close": p["close"],
+                    "open": p.get("open"),
+                    "high": p.get("high"),
+                    "low": p.get("low"),
+                    "volume": p.get("volume")
+                }
                 for p in comp.get("price_history", [])
             ],
             "calendar": comp.get("calendar", []),
