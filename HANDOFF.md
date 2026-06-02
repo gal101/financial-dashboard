@@ -42,7 +42,7 @@ Create `financial-dashboard/server/shared/tradeville_streamer.py` and modify `se
      - `self.worker_pool = ThreadPoolExecutor(max_workers=4)`: Worker pool to process pushes in parallel, ensuring the socket receiver never blocks.
    - **Operation Threads:**
      - **Connection & Login:** Connects to `wss://api.tradeville.ro:443` (protocol `apitv`) using `.env` credentials. Sends `login` command.
-     - **Transmitter Loop (Thread):** Pulls from `self.out_queue`. Enforces a strict `0.5s` delay between consecutive WebSocket sends to stay below the 20 requests per 10 seconds limit.
+     - **Transmitter Loop (Thread):** Pulls from `self.out_queue`. Enforces a strict minimum `0.6s` cooldown between consecutive WebSocket sends to ensure we never exceed the 20 requests per 10 seconds limit. The sleep time is calculated as `max(0, 0.6 - (time.time() - last_sent_time))`.
      - **Receiver Loop (Thread):** Reads from `self.ws.recv()`.
        - If a command response arrives, matches the key in `self.pending_requests`, populates the `"response"` value, and calls `.set()` on the `Event` to wake up the waiting HTTP handler.
        - If a push message arrives (`updtype: "CA"`), drops it into `self.push_queue` immediately.
