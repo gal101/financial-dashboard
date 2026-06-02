@@ -248,8 +248,7 @@ function ra(){
     STOCKS.forEach(function(h){
       var comp=CD.companies[h.simbol];
       if(comp&&comp.metrics&&comp.metrics.dividendYield){
-        var val=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON);
-        divTotal+=val*comp.metrics.dividendYield;
+        divTotal+=h.actiuni*comp.metrics.dividend;
       }
     });
   }
@@ -457,8 +456,8 @@ function showCompany(simbol){
     {v:m.trailingPE,l:'P/E (TTM)',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
     {v:m.forwardPE,l:'P/E (forward)',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
     {v:m.priceToBook,l:'P/B',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
-    {v:m.dividendYield,l:'Div. Yield',f:function(n){return n?(n*100).toFixed(2):'-'},s:'%'},
-    {v:m.dividendRate,l:'Div. anual',f:function(n){return n?n.toFixed(4):'-'},s:'RON/act'},
+    {v:m.dividendYield,l:'Div. Yield',f:function(n){return n?n.toFixed(2):'-'},s:'%'},
+    {v:m.dividend,l:'Div. anual',f:function(n){return n?n.toFixed(4):'-'},s:'RON/act'},
     {v:m.beta,l:'Beta',f:function(n){return n?n.toFixed(2):'-'},s:''},
     {v:m.profitMargins,l:'Marja profit',f:fmtPct,s:''},
     {v:m.returnOnEquity,l:'ROE',f:fmtPct,s:''},
