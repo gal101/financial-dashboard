@@ -141,16 +141,29 @@ def handle_delete_from_watchlist(symbol: str) -> dict:
 
     # Remove from active websocket subscriptions if present
     try:
-        import server
+        import server.server as server
         if server.streamer and symbol in server.streamer.active_tickers:
             server.streamer.active_tickers.discard(symbol)
+            server.streamer._resubscribe()
             log.info(f"[watchlist] Removed {symbol} from active websocket subscriptions")
     except Exception as e:
         log.warning(f"[watchlist] Could not update active subscriptions for {symbol}: {e}")
-    # Also regenerate watchlist_data.json without the deleted symbol
-    log.info(f"[price] {symbol} — regenerating watchlist prices after delete...")
-    _fetch_price_for(symbol)
-
+    # Update watchlist_data.json on disk offline
+    from shared.config import WATCHLIST_DATA_FILE
+    if os.path.exists(WATCHLIST_DATA_FILE):
+        try:
+            with open(WATCHLIST_DATA_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            prices_dict = data.get("prices", {})
+            if symbol in prices_dict:
+                del prices_dict[symbol]
+                temp_path = WATCHLIST_DATA_FILE + ".tmp"
+                with open(temp_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                os.replace(temp_path, WATCHLIST_DATA_FILE)
+                log.info(f"[watchlist] Removed {symbol} from watchlist_data.json")
+        except Exception as e:
+            log.warning(f"[watchlist] Could not update watchlist_data.json after delete: {e}")
     return {"success": True, "watchlist": wl}
 
 
