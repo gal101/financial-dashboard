@@ -28,7 +28,7 @@
 
 <div class="container">
   <div class="kpis">
-    <div class="kpi"><div class="kpi-label">Valoare portofoliu</div><div class="kpi-val" id="kv">-</div><div class="kpi-sub" id="kvr">- RON</div></div>
+    <div class="kpi"><div class="kpi-label">Valoare portofoliu</div><div class="kpi-val" id="kv">-</div></div>
     <div class="kpi"><div class="kpi-label">Total investit</div><div class="kpi-val neu" id="ki">-</div><div class="kpi-sub">RON</div><div class="kpi-sub sub" id="kit"></div></div>
     <div class="kpi"><div class="kpi-label">Profit / Pierdere</div><div class="kpi-val" id="kp">-</div><div class="kpi-sub" id="kpp">-</div><div id="kpes" style="margin-top:4px; font-size:0.7rem; color:var(--dim)">Net est: -</div></div>
     <div class="kpi"><div class="kpi-label">Pozitii deschise</div><div class="kpi-val neu" id="kn">-</div><div class="kpi-sub">actiuni</div></div>
@@ -238,8 +238,7 @@ function ra(){
   all.forEach(function(h){invested+=h.investitie_initiala_RON;total+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
   var pnlv=total-invested;
   var pnlPct=invested?pnlv/invested*100:0;
-  document.getElementById('kv').textContent=fmt(total)+' RON';
-  document.getElementById('kvr').textContent=fmt(total,2)+' RON';
+  document.getElementById('kv').textContent=fmt(total,2)+' RON';
   document.getElementById('ki').textContent=fmt(invested)+' RON';
   document.getElementById('kp').textContent=(pnlv>=0?'+':'')+fmt(pnlv)+' RON';
   document.getElementById('kp').className='kpi-val '+pnl(pnlv);
@@ -777,8 +776,7 @@ function recalculateKPIs() {
   all.forEach(function(h){invested+=h.investitie_initiala_RON;total+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
   var pnlv=total-invested;
   var pnlPct=invested?pnlv/invested*100:0;
-  document.getElementById('kv').textContent=fmt(total)+' RON';
-  document.getElementById('kvr').textContent=fmt(total,2)+' RON';
+  document.getElementById('kv').textContent=fmt(total,2)+' RON';
   document.getElementById('ki').textContent=fmt(invested)+' RON';
   document.getElementById('kp').textContent=(pnlv>=0?'+':'')+fmt(pnlv)+' RON';
   document.getElementById('kp').className='kpi-val '+pnl(pnlv);
