@@ -252,3 +252,35 @@ Create `financial-dashboard/server/shared/activity_sync.py` to sync account tran
     }
   }
   ```
+
+---
+
+## 3. Post-Migration: Unified Server & Real-Time Monitoring
+
+Following the Tradeville API migration, the project transitioned to a unified backend/frontend server architecture to simplify deployment and introduce real-time features.
+
+### Key Post-Migration Features:
+1. **Unified Port (8089):** The static files server (previously port 8080) was decommissioned. The python server on port 8089 now serves static assets (`dashboard.html`, `company.html`, `monitor.html`, `style.css`, `company_profile.js`, `.json` data) and handles REST/WebSocket API proxy requests.
+2. **Server-Sent Events (SSE) Streaming:** `/api/monitor/events` streams live events (ticks, log events, task states, ws_status) to connected browsers.
+3. **Server Monitor Panel (`monitor.html`):** A browser-based monitoring console displays a real-time log terminal, active cron execution statuses (via task-ping webhook), and controls to trigger manual operations.
+4. **Incremental Historical Fetching:** `company_fetcher.py` was optimized to perform database-aware incremental fetches by querying `MAX(date)` from `price_history` before requesting daily values from Tradeville.
+5. **Threaded Processing:** Python's standard `http.server.ThreadingHTTPServer` was adopted to enable asynchronous handling of persistent SSE streams.
+
+### Verification:
+Run `python test_unified_server.py` in the root directory to verify that static file routing, directory traversal protections, log capture, task ping, control endpoints, and SSE streams function correctly.
+
+### Phase 2: Real-Time Infrastructure & Monitoring (Completed June 2026)
+
+6. **Singleton Server Protection:** PID file check at startup prevents multiple server instances. Cleaned on Ctrl+C and restart button.
+7. **Startup Portfolio Sync + Symbol Fetch:** On server start, `Portfolio` command fetches live holdings, seeds `price_cache` with `MarketPrice`, then background thread fetches accurate `Price`/`RefPrice` via `Symbol` command for each ticker (~0.6s per symbol, 5s total).
+8. **Live Price Overlay:** `_serve_static_file` intercepts `bvb_portfolio.json` requests and injects latest prices from `streamer.price_cache` before serving, including recalculated `valoare_evaluata_RON`, `profit_pierdere_RON`, and metadata totals.
+9. **Real-Time Disk Cache:** `_update_disk_cache` writes updated prices and derived values to `bvb_portfolio.json` and `watchlist_data.json` on every push tick (atomic via temp file + `os.replace`).
+10. **Price Flash Animation:** Dashboard cells flash green (price up) or red (price down) for 3 seconds on price changes, with debounced timers per symbol to prevent flickering.
+11. **Targeted DOM Updates:** `updateDOMForSymbol` updates only the affected row in holdings, turbo, and watchlist tables without full table redraws, enabling stable SSE animations.
+12. **TA/CA Tick Routing:** Both trade ticks (`TA`) and quote updates (`CA`) are routed to the push queue for live price updates. Duplicate ticks from Tradeville are deduplicated by `sim|pret|volz` key.
+13. **SQLite UPSERT:** Prevents `UNIQUE constraint failed` errors by using `INSERT ... ON CONFLICT DO UPDATE` for concurrent push tick and cron price writes.
+14. **Restart Button:** Server monitor includes a restart button that spawns a detached process, cleans the PID file, and exits — while the frontend polls `/health` and auto-refreshes.
+15. **Turbo Certificate Profile Link:** Turbo certificates in the holdings table are now clickable and navigate to their company profile page.
+
+### Test Suite:
+Run `python test_unified_server.py` (10 tests: static serving, directory traversal, log capture, SSE streaming, price streaming, task ping, monitor controls).

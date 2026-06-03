@@ -12,14 +12,14 @@
 | **Holding** | O pozitie individuala din portofoliu — un simbol cu o cantitate detinuta, pret de achizitie, valoare curenta, P/L. |
 | **Watchlist** | Lista de simboluri urmarite de utilizator dar **fara detinere**. Separat de Portfolio. ✅ Implementat. |
 | **Company Profile** | Sectiunea cu detaliile unei singure companii: metrici financiare, grafice de pret, rezultate financiare. Accesibila atat din Holdings cat si din Watchlist. |
-| **Simbol** | Ticker-ul BVB al companiei (ex: `TLV`, `SNP`, `BENTO`). Se stocheaza **fara** sufix `.RO`. Sufixul `.RO` se adauga doar in request-urile catre Yahoo Finance. |
-| **Produs structurat** | Certificate turbo (ex: `EBTLVTL19`). Nu sunt listate pe Yahoo Finance — pretul de referinta e cel din exportul brokerului. |
+| **Simbol** | Ticker-ul BVB al companiei (ex: `TLV`, `SNP`, `BENTO`). Se stocheaza **fara** sufix `.RO`. |
+| **Produs structurat** | Certificate turbo (ex: `EBTLVTL19`). Nu sunt listate in cotațiile principale — pretul de referinta e cel din exportul brokerului sau feed live. |
 
 ## Concepte financiare
 
 | Termen | Definitie |
 |---|---|
-| **Pret actual** | Ultimul pret de tranzactionare de pe BVB, obtinut prin Yahoo Finance (campul `regularMarketPrice`). |
+| **Pret actual** | Ultimul pret de tranzactionare de pe BVB, obtinut prin Tradeville API (WebSocket/HTTP proxy) sau cache SQLite. |
 | **Pret mediu de achizitie** | Pretul mediu ponderat la care utilizatorul a cumparat actiunile. |
 | **Investitie initiala** | `cantitate × pret_mediu_achizitie`. Suma efectiv investita in acea pozitie. |
 | **Valoare evaluata** | `cantitate × pret_actual`. Cat valoreaza pozitia la pretul curent. |
@@ -33,7 +33,7 @@
 
 | Sursa | Ce furnizeaza |
 |---|---|
-| **Yahoo Finance** (yfinance) | Preturi curente, istoric preturi, metrici brute (market cap, sector, etc.). **NU folosim metricile calculate de Yahoo** (P/E, P/B, etc.) — sunt frecvent gresite pentru BVB. |
+| **Tradeville API** | Preturi live curente (WebSocket ticks), istoric cotații zilnice, metrici brute (SharesNr, Earnings, Name, ISIN). |
 | **Site-uri oficiale companii** (Investor Relations) | Rapoarte financiare (Excel/PDF), Bugete de Venituri si Cheltuieli (BVC), numar de actiuni. Sursa primara pentru datele financiare brute. |
 | **BVB.ro** | Pagina simbol (PER, PBV, EPS, DIVY — valori publicate oficial), calendar financiar. |
 | **Tradeville CSV** | Portofoliul initial: simboluri, cantitati, preturi de achizitie. Importat o singura data. |

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BVB Monitor - Panou Control Server</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .term-container {
+    background: #090b10;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    font-family: 'Consolas', 'Courier New', Courier, monospace;
+    font-size: .85rem;
+    color: #e1e3ea;
+    height: 450px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: 12px;
+  }
+  .log-line {
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+  .log-line.DEBUG { color: #8b8fa3; }
+  .log-line.INFO { color: #e1e3ea; }
+  .log-line.WARNING { color: #eab308; }
+  .log-line.ERROR { color: #ef4444; }
+  
+  .ctrl-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .ctrl-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .ctrl-title {
+    font-size: .85rem;
+    font-weight: 700;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: .75rem;
+    font-weight: 600;
+  }
+  .status-badge.connected { background: rgba(34,197,94,.1); color: var(--green); }
+  .status-badge.disconnected { background: rgba(239,68,68,.1); color: var(--red); }
+  .status-badge.authenticating { background: rgba(234,179,8,.1); color: #eab308; }
+  .status-badge.running { background: rgba(99,102,241,.1); color: var(--accent); }
+  .status-badge.success { background: rgba(34,197,94,.1); color: var(--green); }
+  .status-badge.failed { background: rgba(239,68,68,.1); color: var(--red); }
+
+  .task-tbl {
+    width: 100%;
+    margin-bottom: 24px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>&#128187; Monitor Server</h1>
+    <div class="sub">Panou de administrare și streaming de evenimente în timp real</div>
+  </div>
+  <div class="last-up">
+    <div style="margin-bottom:6px">
+      WebSocket Tradeville: <span id="ws-badge" class="status-badge disconnected"><span class="dot" style="background:currentColor"></span><span id="ws-text">Verificare...</span></span>
+    </div>
+    <div style="margin-top:6px">
+      <a href="dashboard.html" class="btn" style="text-decoration:none">&#128202; Înapoi la Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  
+  <div class="ctrl-grid">
+    <div class="ctrl-card">
+      <div>
+        <div class="ctrl-title">Portofoliu</div>
+        <div style="font-size:.8rem;color:var(--dim);margin-top:4px">Sincronizează deținerile și prețurile medii direct din Tradeville.</div>
+      </div>
+      <button class="btn" onclick="triggerAction('/api/monitor/sync-portfolio')">&#128260; Sincronizează</button>
+    </div>
+    
+    <div class="ctrl-card">
+      <div>
+        <div class="ctrl-title">Istoric Cotații</div>
+        <div style="font-size:.8rem;color:var(--dim);margin-top:4px">Rulează update-ul asincron incremental pentru istoricul companiilor.</div>
+      </div>
+      <button class="btn" onclick="triggerAction('/api/monitor/sync-history')">&#128200; Actualizează Istoric</button>
+    </div>
+    
+    <div class="ctrl-card">
+      <div>
+        <div class="ctrl-title">Conexiune Socket</div>
+        <div style="font-size:.8rem;color:var(--dim);margin-top:4px">Forțează reconectarea WebSocket-ului către API-ul Tradeville.</div>
+      </div>
+      <button class="btn" onclick="triggerAction('/api/monitor/reconnect')">&#128268; Reconectează</button>
+    </div>
+    
+    <div class="ctrl-card">
+      <div>
+        <div class="ctrl-title">Abonamente</div>
+        <div style="font-size:.8rem;color:var(--dim);margin-top:4px">Re-abonează socket-ul la fluxul live pentru companiile active.</div>
+      </div>
+      <button class="btn" onclick="triggerAction('/api/monitor/reset-subscriptions')">&#128257; Resetează Abonări</button>
+    </div>
+
+    <div class="ctrl-card" style="background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.15)">
+      <div>
+        <div class="ctrl-title" style="color:var(--red)">&#128266; Restart Server</div>
+        <div style="font-size:.8rem;color:var(--dim);margin-top:4px">Oprește procesul curent și pornește unul nou, independent.</div>
+      </div>
+      <button class="btn" style="background:rgba(239,68,68,.15);color:var(--red);border-color:rgba(239,68,68,.3)" onclick="restartServer()">&#x21bb; Restart Acum</button>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">&#128336; Stare Task-uri (Hermes / Cron)</div>
+    <div class="tbl">
+      <table class="task-tbl">
+        <thead>
+          <tr>
+            <th style="text-align:left">Task</th>
+            <th>Stare</th>
+            <th>Ultima Rulare</th>
+            <th>Durată</th>
+            <th>Eroare</th>
+          </tr>
+        </thead>
+        <tbody id="task-tbody">
+          <tr>
+            <td colspan="5" style="text-align:center;color:var(--dim);padding:16px">Niciun task înregistrat încă. Aștept ping-uri...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="tbl-head" style="border:1px solid var(--border);border-bottom:none;border-radius:14px 14px 0 0;background:var(--card)">
+      <h2>&#128196; Log-uri Live Server</h2>
+      <button class="btn" onclick="clearTerminal()">Golește Terminalul</button>
+    </div>
+    <div class="term-container" id="terminal"></div>
+  </div>
+
+</div>
+
+<script>
+  var terminal = document.getElementById('terminal');
+  var taskTbody = document.getElementById('task-tbody');
+  var tasks = {};
+
+  function logToTerminal(message) {
+    var line = document.createElement('div');
+    line.className = 'log-line';
+    
+    // Classify log levels for colored output
+    if (message.indexOf('[DEBUG') >= 0) { line.classList.add('DEBUG'); }
+    else if (message.indexOf('[WARNING') >= 0) { line.classList.add('WARNING'); }
+    else if (message.indexOf('[ERROR') >= 0) { line.classList.add('ERROR'); }
+    else { line.classList.add('INFO'); }
+    
+    line.textContent = message;
+    
+    // Auto scroll if user is near bottom
+    var shouldScroll = (terminal.scrollHeight - terminal.clientHeight - terminal.scrollTop) < 50;
+    
+    terminal.appendChild(line);
+    
+    // Limit log lines to 500
+    while (terminal.childElementCount > 500) {
+      terminal.removeChild(terminal.firstChild);
+    }
+    
+    if (shouldScroll) {
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+  }
+
+  function clearTerminal() {
+    terminal.innerHTML = '';
+  }
+
+  function updateTasksTable() {
+    var keys = Object.keys(tasks);
+    if (keys.length === 0) return;
+    
+    var html = '';
+    keys.sort().forEach(function(k) {
+      var t = tasks[k];
+      var statusClass = 'status-badge ' + t.status;
+      var err = t.error ? t.error : '-';
+      var dur = t.duration ? t.duration + 's' : '-';
+      
+      html += '<tr>' +
+        '<td style="text-align:left;font-weight:700">' + t.task + '</td>' +
+        '<td><span class="' + statusClass + '">' + t.status.toUpperCase() + '</span></td>' +
+        '<td>' + t.updated_at + '</td>' +
+        '<td>' + dur + '</td>' +
+        '<td style="color:var(--red);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + err + '">' + err + '</td>' +
+        '</tr>';
+    });
+    taskTbody.innerHTML = html;
+  }
+
+  function restartServer() {
+    if (!confirm('Ești sigur că vrei să repornești serverul? Dashboard-ul va fi inaccesibil ~3 secunde.')) return;
+    logToTerminal('>> Trimitere comanda RESTART catre server...');
+    fetch('/api/monitor/restart', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.success) {
+          logToTerminal('<< Serverul se reporneste... Aceasta pagina va fi deconectata.');
+          document.querySelectorAll('.btn').forEach(function(b){ b.disabled = true; });
+          // Try to reconnect after 3 seconds by polling
+          var attempts = 0;
+          var check = setInterval(function() {
+            attempts++;
+            fetch('/health', { method: 'GET' })
+              .then(function() {
+                clearInterval(check);
+                logToTerminal('<< Serverul a revenit online! Refresh...');
+                setTimeout(function(){ location.reload(); }, 500);
+              })
+              .catch(function() {
+                if (attempts > 15) {
+                  clearInterval(check);
+                  logToTerminal('<< Serverul nu a revenit in 15 secunde. Verifica manual.');
+                }
+              });
+          }, 1000);
+        }
+      })
+      .catch(function(err) {
+        logToTerminal('<< Serverul s-a oprit (asteptam revenirea)...');
+        document.querySelectorAll('.btn').forEach(function(b){ b.disabled = true; });
+        var attempts = 0;
+        var check = setInterval(function() {
+          attempts++;
+          fetch('/health', { method: 'GET' })
+            .then(function() {
+              clearInterval(check);
+              logToTerminal('<< Serverul a revenit online! Refresh...');
+              setTimeout(function(){ location.reload(); }, 500);
+            })
+            .catch(function() {
+              if (attempts > 15) {
+                clearInterval(check);
+                logToTerminal('<< Serverul nu a revenit in 15 secunde. Verifica manual.');
+              }
+            });
+        }, 1000);
+      });
+  }
+
+  function triggerAction(endpoint) {
+    logToTerminal('>> Trimitere comanda catre ' + endpoint + '...');
+    fetch(endpoint, { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.success) {
+          logToTerminal('<< Succes: ' + (res.message ? res.message : 'Actiune executata.'));
+        } else {
+          logToTerminal('<< Eroare: ' + res.error);
+        }
+      })
+      .catch(function(err) {
+        logToTerminal('<< Eroare de retea: ' + err);
+      });
+  }
+
+  // Connect to SSE event stream
+  var es = new EventSource('/api/monitor/events');
+  
+  es.addEventListener('log', function(e) {
+    try {
+      var data = JSON.parse(e.data);
+      if (data.message) {
+        logToTerminal(data.message);
+      }
+    } catch(err) {
+      console.error('Error parsing SSE log event:', err);
+    }
+  });
+
+  es.addEventListener('status', function(e) {
+    try {
+      var data = JSON.parse(e.data);
+      var badge = document.getElementById('ws-badge');
+      var text = document.getElementById('ws-text');
+      
+      badge.className = 'status-badge ' + data.ws_status.toLowerCase();
+      text.textContent = data.ws_status;
+      
+      logToTerminal('[SYSTEM] WebSocket status updated: ' + data.ws_status + ' (coada: ' + data.queue_size + ' mesaje)');
+    } catch(err) {
+      console.error('Error parsing SSE status event:', err);
+    }
+  });
+
+  es.addEventListener('task', function(e) {
+    try {
+      var data = JSON.parse(e.data);
+      tasks[data.task] = data;
+      updateTasksTable();
+      logToTerminal('[TASK] ' + data.task + ' status update: ' + data.status.toUpperCase() + (data.duration ? ' (durata: ' + data.duration + 's)' : ''));
+    } catch(err) {
+      console.error('Error parsing SSE task event:', err);
+    }
+  });
+
+  es.addEventListener('error', function(e) {
+    logToTerminal('[SYSTEM] SSE connection lost. Reconnecting...');
+    var badge = document.getElementById('ws-badge');
+    var text = document.getElementById('ws-text');
+    badge.className = 'status-badge disconnected';
+    text.textContent = 'Reconectare SSE...';
+  });
+</script>
+
+</body>
+</html>

@@ -6,7 +6,13 @@ Paths, constants, and secrets.
 import os
 
 # Base directory
-BASE_DIR = "/financial-dashboard"
+BASE_DIR = os.environ.get("BASE_DIR")
+if not BASE_DIR:
+    local_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if os.path.exists(os.path.join(local_dir, "bvb_portfolio.json")) or os.path.exists(os.path.join(local_dir, "bvb_portfolio.example.json")):
+        BASE_DIR = local_dir
+    else:
+        BASE_DIR = "/financial-dashboard"
 
 # Data files
 PORTFOLIO_FILE = os.path.join(BASE_DIR, "bvb_portfolio.json")

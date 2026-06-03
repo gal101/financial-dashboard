@@ -23,16 +23,12 @@ if not exist ".venv" (
     call .venv\Scripts\activate.bat
 )
 
-:: 2. Launch the static web server in a separate CMD window
-echo [setup] Starting static Web Server on http://localhost:8080...
-start "BVB Dashboard - Web Server (Port 8080)" cmd /c "python -m http.server 8080"
-
 :: 3. Launch the backend API server in the current CMD window
 echo [setup] Starting Python API Server on http://localhost:8089...
 echo.
 echo ===================================================================
 echo   BVB Portfolio Dashboard is running!
-echo   Open your browser and go to: http://localhost:8080/dashboard.html
+echo   Open your browser and go to: http://localhost:8089/dashboard.html
 echo ===================================================================
 echo.
 echo [log] Backend API logs will print below. Press Ctrl+C to stop.

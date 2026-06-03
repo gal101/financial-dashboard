@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """BVB Dashboard Server — HTTP API server with logging."""
-import json, os, sys, logging
+import json, os, sys, logging, collections, threading, queue, subprocess, time
 from datetime import datetime, timezone
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 _server_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _server_dir)
 sys.path.insert(0, os.path.dirname(_server_dir))
 
-from shared.config import SERVER_HOST, SERVER_PORT, COMPANY_DATA_FILE, PENDING_SCRAPES_FILE, SCRAPE_RESULTS_DIR
+from shared.config import SERVER_HOST, SERVER_PORT, COMPANY_DATA_FILE, PENDING_SCRAPES_FILE, SCRAPE_RESULTS_DIR, BASE_DIR
 from handlers.refresh import handle_refresh
 from handlers.watchlist import handle_get_watchlist, handle_add_to_watchlist, handle_delete_from_watchlist
 from json_sanitizer import safe_json_dumps
@@ -134,6 +134,67 @@ logging.basicConfig(
 )
 log = logging.getLogger("bvb-server")
 
+class SSESubscriptionManager:
+    def __init__(self):
+        self.queues = []
+        self.lock = threading.Lock()
+
+    def subscribe(self):
+        q = queue.Queue()
+        with self.lock:
+            self.queues.append(q)
+        return q
+
+    def unsubscribe(self, q):
+        with self.lock:
+            if q in self.queues:
+                self.queues.remove(q)
+
+    def broadcast(self, event_type: str, data: dict):
+        payload = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+        with self.lock:
+            for q in self.queues:
+                q.put(payload)
+
+sse_manager = SSESubscriptionManager()
+
+task_tracker = {}
+
+class MemoryLogHandler(logging.Handler):
+    def __init__(self, capacity=300):
+        super().__init__()
+        self.capacity = capacity
+        self.buffer = collections.deque(maxlen=capacity)
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.buffer.append(msg)
+            sse_manager.broadcast("log", {"message": msg})
+        except Exception:
+            self.handleError(record)
+    def get_logs(self):
+        return list(self.buffer)
+
+memory_log_handler = MemoryLogHandler()
+memory_log_handler.setFormatter(logging.Formatter(
+    fmt="%(asctime)s [%(levelname)-5s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+))
+logging.getLogger("").addHandler(memory_log_handler)
+
+MIME_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".ico": "image/x-icon",
+    ".svg": "image/svg+xml"
+}
+
 # ── HTTP Handler ─────────────────────────────────────────────────────────────
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -162,6 +223,82 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         log.info(f"[http] {args[0]}")
+
+    def _serve_static_file(self, rel_path: str):
+        base_abs = os.path.abspath(BASE_DIR)
+        if rel_path == "/" or rel_path == "":
+            rel_path = "/dashboard.html"
+        clean_rel = rel_path.lstrip("/")
+        file_path = os.path.abspath(os.path.join(base_abs, clean_rel))
+        if not file_path.startswith(base_abs):
+            self.send_error(403, "Access Denied")
+            return
+        if not os.path.exists(file_path) or not os.path.isfile(file_path):
+            self.send_error(404, "File Not Found")
+            return
+        ext = os.path.splitext(file_path)[1].lower()
+        content_type = MIME_TYPES.get(ext, "application/octet-stream")
+        try:
+            filename = os.path.basename(file_path)
+            content = None
+            global streamer
+            if filename == "bvb_portfolio.json" and streamer:
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    for h in data.get("holdings", []):
+                        sym = h.get("simbol")
+                        if sym in streamer.price_cache:
+                            tick = streamer.price_cache[sym]
+                            price = tick.get("pret")
+                            ref = tick.get("ref")
+                            if price:
+                                h["pret_actual_RON"] = price
+                                if ref:
+                                    h["variatie_pret_pct"] = round(((price - ref) / ref) * 100, 2)
+                                qty = h.get("actiuni", 0)
+                                h["valoare_evaluata_RON"] = round(price * qty, 2)
+                                inv = h.get("investitie_initiala_RON", 0)
+                                h["profit_pierdere_RON"] = round(price * qty - inv, 2)
+                    meta = data.get("metadata", {})
+                    total_val = sum(h.get("valoare_evaluata_RON", 0) for h in data.get("holdings", []))
+                    total_inv = sum(h.get("investitie_initiala_RON", 0) for h in data.get("holdings", []))
+                    meta["total_evaluare_RON"] = round(total_val, 2)
+                    meta["total_investit_RON"] = round(total_inv, 2)
+                    meta["total_profit_pierdere_RON"] = round(total_val - total_inv, 2)
+                    meta["return_total_pct"] = round((total_val - total_inv) / total_inv * 100, 2) if total_inv else 0
+                    content = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+                except Exception as ex:
+                    log.warning(f"[http] Error overlaying portfolio prices: {ex}")
+            elif filename == "watchlist_data.json" and streamer:
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    prices_dict = data.get("prices", {})
+                    for sym, p_val in prices_dict.items():
+                        if sym in streamer.price_cache:
+                            tick = streamer.price_cache[sym]
+                            price = tick.get("pret")
+                            ref = tick.get("ref")
+                            if price:
+                                p_val["price"] = price
+                                if ref:
+                                    p_val["changePct"] = round((price - ref) / ref, 4)
+                    content = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+                except Exception as ex:
+                    log.warning(f"[http] Error overlaying watchlist prices: {ex}")
+            if content is None:
+                with open(file_path, "rb") as f:
+                    content = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+        except Exception as e:
+            log.error(f"[http] Error serving static file {rel_path}: {e}")
+            self.send_error(500, "Internal Server Error")
 
     # ── CORS preflight ──────────────────────────────────────────
     def do_OPTIONS(self):
@@ -219,8 +356,62 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"transactions": [dict(r) for r in rows]})
             finally:
                 conn.close()
+        elif path == "/api/monitor/logs":
+            log_list = memory_log_handler.get_logs()
+            self._send_json(log_list)
+
+        elif path == "/api/monitor/events":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            logs = memory_log_handler.get_logs()
+            for msg in logs:
+                payload = f"event: log\ndata: {json.dumps({'message': msg})}\n\n"
+                try:
+                    self.wfile.write(payload.encode("utf-8"))
+                except Exception:
+                    return
+            
+            global streamer
+            ws_status = "Disconnected"
+            if streamer and streamer.ws and streamer.ws.connected:
+                ws_status = "Connected" if streamer.authenticated else "Authenticating"
+            status_payload = f"event: status\ndata: {json.dumps({'ws_status': ws_status, 'queue_size': streamer.out_queue.qsize() if streamer else 0})}\n\n"
+            try:
+                self.wfile.write(status_payload.encode("utf-8"))
+                self.wfile.flush()
+            except Exception:
+                return
+            for t_name, t_data in task_tracker.items():
+                payload = f"event: task\ndata: {json.dumps(t_data)}\n\n"
+                try:
+                    self.wfile.write(payload.encode("utf-8"))
+                except Exception:
+                    return
+
+
+            q = sse_manager.subscribe()
+            try:
+                while True:
+                    try:
+                        event_data = q.get(timeout=15)
+                        self.wfile.write(event_data.encode("utf-8"))
+                        self.wfile.flush()
+                    except queue.Empty:
+                        ping = "event: ping\ndata: {}\n\n"
+                        self.wfile.write(ping.encode("utf-8"))
+                        self.wfile.flush()
+            except Exception:
+                pass
+            finally:
+                sse_manager.unsubscribe(q)
+
         else:
-            self._send_json({"error": "Not found"}, 404)
+            self._serve_static_file(parsed.path)
 
     # ── POST ────────────────────────────────────────────────────
     def do_POST(self):
@@ -232,7 +423,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             log.info("[api] POST /refresh — starting...")
             result = handle_refresh()
             status = 200 if result["success"] else 500
-            log.info(f"[api] POST /refresh → {'OK' if result['success'] else 'FAIL'}")
+            log.info(f"[api] POST /refresh -> {'OK' if result['success'] else 'FAIL'}")
             self._send_json(result, status)
 
         elif path == "/watchlist":
@@ -263,7 +454,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 
             key = (cmd, symbol)
             
-            import threading
             event = threading.Event()
             
             global streamer
@@ -291,6 +481,82 @@ class DashboardHandler(BaseHTTPRequestHandler):
             else:
                 fallback = get_offline_fallback(cmd, symbol)
                 self._send_json(fallback)
+        elif path == "/api/monitor/task-ping":
+            task_name = body.get("task")
+            status = body.get("status")
+            error = body.get("error")
+            duration = body.get("duration")
+            if not task_name or not status:
+                self._send_json({"success": False, "error": "Missing task or status"}, 400)
+                return
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            task_data = {
+                "task": task_name,
+                "status": status,
+                "updated_at": now_str,
+                "error": error,
+                "duration": duration
+            }
+            task_tracker[task_name] = task_data
+            sse_manager.broadcast("task", task_data)
+            self._send_json({"success": True, "task": task_data})
+
+        elif path == "/api/monitor/reconnect":
+            if streamer:
+                streamer.force_reconnect()
+                self._send_json({"success": True, "message": "Reconnection triggered"})
+            else:
+                self._send_json({"success": False, "error": "Streamer not running"})
+        elif path == "/api/monitor/sync-portfolio":
+            def run_sync():
+                try:
+                    subprocess.run([sys.executable, os.path.join(BASE_DIR, "portfolio_updater.py"), "--force"])
+                except Exception as e:
+                    log.error(f"[monitor] Failed to run portfolio_updater.py: {e}")
+            threading.Thread(target=run_sync, daemon=True).start()
+            self._send_json({"success": True, "message": "Portfolio sync triggered in background"})
+        elif path == "/api/monitor/sync-history":
+            def run_history():
+                try:
+                    subprocess.run([sys.executable, os.path.join(BASE_DIR, "company_fetcher.py")])
+                except Exception as e:
+                    log.error(f"[monitor] Failed to run company_fetcher.py: {e}")
+            threading.Thread(target=run_history, daemon=True).start()
+            self._send_json({"success": True, "message": "History sync triggered in background"})
+        elif path == "/api/monitor/reset-subscriptions":
+            if streamer:
+                streamer._resubscribe()
+                self._send_json({"success": True, "message": "Subscriptions reset triggered"})
+            else:
+                self._send_json({"success": False, "error": "Streamer not running"})
+        elif path == "/api/monitor/restart":
+            log.info("[monitor] Server restart requested — spawning new process and exiting...")
+            # Send response before we terminate
+            self._send_json({"success": True, "message": "Server restarting..."})
+            # Flush to ensure the client receives it
+            self.wfile.flush()
+            time.sleep(0.2)
+            # Spawn a fully detached new process (won't be killed when we exit)
+            flags = 0
+            if hasattr(subprocess, "CREATE_NEW_PROCESS_GROUP"):
+                flags |= 0x00000200  # CREATE_NEW_PROCESS_GROUP
+            if hasattr(subprocess, "DETACHED_PROCESS"):
+                flags |= 0x00000008  # DETACHED_PROCESS
+            subprocess.Popen(
+                [sys.executable, os.path.join(_server_dir, "server.py")],
+                cwd=BASE_DIR,
+                creationflags=flags,
+                close_fds=True
+            )
+            # Clean up PID file so new instance can start clean
+            pid_file = os.path.join(BASE_DIR, "server.pid")
+            try:
+                if os.path.exists(pid_file):
+                    os.remove(pid_file)
+            except Exception:
+                pass
+            os._exit(0)
+
         else:
             self._send_json({"error": "Not found"}, 404)
 
@@ -322,7 +588,7 @@ def _handle_scrape_callback(body: dict) -> dict:
         log.error(f"[scrape] Missing symbol or file in callback: {body}")
         return {"success": False, "error": "Missing symbol or file"}
 
-    full_path = os.path.join("/financial-dashboard", result_file)
+    full_path = os.path.join(BASE_DIR, result_file)
     if not os.path.exists(full_path):
         log.error(f"[scrape] Result file not found: {full_path}")
         return {"success": False, "error": f"Result file not found: {full_path}"}
@@ -447,7 +713,7 @@ def _update_pending_status(symbol: str, status: str):
     for task in pending.get("tasks", []):
         if task.get("symbol") == symbol:
             task["status"] = status
-            log.debug(f"[scrape] {symbol} — pending status → {status}")
+            log.debug(f"[scrape] {symbol} — pending status -> {status}")
     with open(PENDING_SCRAPES_FILE, "w", encoding="utf-8") as f:
         json.dump(pending, f, ensure_ascii=False, indent=2)
 
@@ -466,14 +732,42 @@ def _remove_pending_task(symbol: str):
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    # ── Singleton check: prevent multiple server instances ──
+    pid_file = os.path.join(BASE_DIR, "server.pid")
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, "r") as f:
+                old_pid = int(f.read().strip())
+            # Check if PID is still alive
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(0x0400, False, old_pid)  # PROCESS_QUERY_INFORMATION
+            if handle:
+                kernel32.CloseHandle(handle)
+                # Check if port is actually in use by trying to connect
+                import socket
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(0.5)
+                in_use = s.connect_ex(('127.0.0.1', SERVER_PORT)) == 0
+                s.close()
+                if in_use:
+                    print(f"Server already running (PID {old_pid}, port {SERVER_PORT}). Exiting.")
+                    sys.exit(0)
+        except (ValueError, OSError, FileNotFoundError):
+            pass
+    # Write our PID
+    with open(pid_file, "w") as f:
+        f.write(str(os.getpid()))
+
     global streamer
     from db import init_db
     init_db() # Migrate schema if needed
     from shared.tradeville_streamer import TradevilleStreamer
     streamer = TradevilleStreamer()
+    streamer.on_push_callbacks.append(lambda tick: sse_manager.broadcast("price", tick))
     streamer.start()
     
-    server = HTTPServer((SERVER_HOST, SERVER_PORT), DashboardHandler)
+    server = ThreadingHTTPServer((SERVER_HOST, SERVER_PORT), DashboardHandler)
     log.info(f"BVB Dashboard API on http://{SERVER_HOST}:{SERVER_PORT}")
     log.info(f"Logging to {LOG_FILE}")
     try:
@@ -484,6 +778,11 @@ def main():
     finally:
         if streamer:
             streamer.stop()
+        try:
+            if os.path.exists(pid_file):
+                os.remove(pid_file)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     main()

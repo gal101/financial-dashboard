@@ -28,19 +28,16 @@ A self-hosted, real-time portfolio tracker for the Bucharest Stock Exchange (BVB
 - **Dark theme UI** — clean, modern dashboard styled for readability
 
 ## Architecture
-
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│ Cron jobs Hermes                                                   │
+│ Cron jobs Hermes (Task Pings to /api/monitor/task-ping)            │
 │  07:00 UTC L-V  →  portfolio_updater.py (Tradeville API)            │
 │  15:00 UTC L-V  →  portfolio_updater.py (Tradeville API)            │
-│  15:30 UTC L-V  →  company_fetcher.py (Tradeville OHLCV + metadata) │
+│  15:30 UTC L-V  →  company_fetcher.py (Incremental OHLCV)           │
 │                    │                                                 │
 │                    ▼                                                 │
 │               db.upsert_prices() → price_history (SQLite)            │
-│               db.export_to_json() → company_data.json                │
 └────────────────────────────────────────────────────────────────────┘
-
 ┌────────────────────────────────────────────────────────────────────┐
 │ TradevilleStreamer (WebSocket daemon thread)                        │
 │   wss://api.tradeville.ro:443 (apitv)                               │
@@ -52,22 +49,19 @@ A self-hosted, real-time portfolio tracker for the Bucharest Stock Exchange (BVB
 │        ▼              ▼               ▼                             │
 │   ┌─────────────────────────────────────────┐                      │
 │   │ HTTP Proxy: POST /api/tradeville/request│                      │
-│   │  → block on threading.Event (timeout=10s)│                     │
-│   │  → offline fallback to SQLite cache     │                      │
-│   └─────────────────────────────────────────┘                      │
-└────────────────────────────────────────────────────────────────────┘
-
+│   └────────────────────┬────────────────────┘                      │
+│                        │ Broadcast Live Ticks                      │
+│                        ▼                                           │
+│                 sse_manager (SSE)                                  │
+└────────────────────────┬───────────────────────────────────────────┘
+                         │
+                         ▼ (Live SSE Stream: /api/monitor/events)
 ┌────────────────────────────────────────────────────────────────────┐
-│ Browser (fetch /company?symbol=X, /transactions, /refresh)          │
-│                    │                                                 │
-│                    ▼                                                 │
-│ HTTP Server :8080 (static files: dashboard.html, company.html)      │
-│                    │                                                 │
-│                    ▼                                                 │
-│ Python API Server :8089                                             │
-│   GET  /company?symbol=X  →  db.get_company()  →  JSON              │
-│   GET  /transactions      →  db → user_transactions → JSON          │
-│   POST /api/tradeville/request → TradevilleStreamer proxy           │
+│ Unified ThreadingHTTPServer (Port 8089)                             │
+│   - Serves Frontend: dashboard.html, company.html, monitor.html    │
+│   - Serves REST API: /company, /watchlist, /transactions, /logs    │
+│   - Streams SSE Events (logs, price ticks, task states, ws_status) │
+│   - Handles Control Endpoints (/api/monitor/*)                     │
 │                    │                                                 │
 │                    ▼                                                 │
 │              bvb_dashboard.db (SQLite, WAL mode)                     │
@@ -88,11 +82,10 @@ A self-hosted, real-time portfolio tracker for the Bucharest Stock Exchange (BVB
 |---------------|---------------------------------------------|
 | Database      | SQLite 3 (WAL mode)                         |
 | Data fetching | Tradeville API (WebSocket + HTTP proxy)     |
-| Backend API   | Python `http.server` (port 8089)            |
+| Server        | Python `ThreadingHTTPServer` (port 8089)     |
 | Frontend      | Vanilla HTML/CSS/JS, Chart.js 4             |
-| Static server | Python `http.server` (port 8080)            |
+| Live Stream   | Server-Sent Events (SSE)                    |
 | Automation    | Hermes Agent cron jobs + webhooks           |
-
 ## Quick Start
 
 ### Prerequisites
@@ -127,17 +120,11 @@ python setup_credentials.py
 pip install -r server/requirements.txt
 ```
 
-### 4. Start the servers
-
+### 4. Start the server
 ```bash
-# Terminal 1: API server (port 8089)
 python server/server.py
-
-# Terminal 2: Static files (port 8080)
-python -m http.server 8080
 ```
-
-Open `http://localhost:8080/dashboard.html`.
+Open `http://localhost:8089/dashboard.html`.
 
 ### 5. Fetch initial data (optional — runs automatically on startup)
 
@@ -152,6 +139,7 @@ python company_fetcher.py        # fetches OHLCV history + metadata → price_hi
 |------------------------------|---------------------------------------------------|------------|
 | `dashboard.html`             | Main web dashboard (HTML/CSS/JS + Chart.js)       | Yes        |
 | `company.html`               | Company Profile page (click on symbol)            | Yes        |
+| `monitor.html`               | Server Monitor UI (live logs, tasks status)       | Yes        |
 | `company_profile.js`         | Chart rendering, metrics display, calendar        | Yes        |
 | `style.css`                  | Shared dark theme CSS                             | Yes        |
 | `portfolio_updater.py`       | Fetches live prices + syncs portfolio from Tradeville | Yes    |

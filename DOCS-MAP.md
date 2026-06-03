@@ -8,8 +8,9 @@ This document serves as a map to the repository's documentation ecosystem. Befor
 
 | File | Purpose | When to Consult | Stiff / Current State |
 | :--- | :--- | :--- | :--- |
-| **`NEW-PRD.md`** | Core product specification for the Tradeville API migration. | To understand **what** features need to be built, user stories, and high-level architectural decisions. | **Current & Active.** Contains the final approved design. |
-| **`HANDOFF.md`** | Step-by-step developer implementation recipe. | To know **how** to write the code. Contains structural steps (Steps 1–8), error-handling logic, and Chart.js code structures. | **Current & Active.** Follow this to execute the migration. |
+| **`NEW-PRD.md`** | Core product specification for the Tradeville API migration, unified server, SSE streaming, and Server Monitor. | To understand **what** features need to be built, user stories, and high-level architectural decisions. | **Current & Active.** Contains the final approved design. |
+| **`HANDOFF.md`** | Historical step-by-step developer implementation recipe for the Tradeville migration. | To know **how** to write the code. Contains structural steps (Steps 1–8), error-handling logic, and Chart.js code structures. | **Archived.** Completed during Tradeville migration. |
+| **`ISSUES.md`** | Local issue backlog for the unified server, SSE event streaming, and monitoring UI implementation. | To view completed vertical slices and acceptance criteria. | **Completed.** All 7 slices implemented, tested, and verified. |
 | **`TRADEVILLE-API-DOCS.md`** | Technical reference for the Tradeville API. | To view exact **JSON payloads** (requests/responses), connection endpoints, and response schemas for BVB queries. | **Current & Active.** Reference cheat sheet. |
 | **`CONTEXT.md`** | Project glossary and financial calculations source of truth. | To understand BVB-specific calculations (e.g. TTM P/E using quarterly derived figures, EPS, profit margins). | **Stable.** Read to keep domain logic aligned. |
 | **`FEATURES.md`** | Project backlog and roadmap. | To review completed features (`✅`) vs. future unimplemented features (`❌`). | **Stable.** Refer to for project context and future goals. |

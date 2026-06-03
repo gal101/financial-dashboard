@@ -81,3 +81,23 @@ td:first-child,td:nth-child(2){text-align:left}
 .modal-btns{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
 .ai-btn{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:.85rem;font-weight:600;transition:opacity .15s;display:flex;align-items:center;gap:6px}
 .ai-btn:hover{opacity:.85}
+@keyframes flashGreen {
+  from { background-color: rgba(34, 197, 94, 0.4); color: #22c55e; }
+  to { background-color: transparent; }
+}
+@keyframes flashRed {
+  from { background-color: rgba(239, 68, 68, 0.4); color: #ef4444; }
+  to { background-color: transparent; }
+}
+.flash-green {
+  animation: flashGreen 3s ease-out;
+  border-radius: 4px;
+  padding: 2px 4px;
+  display: inline-block;
+}
+.flash-red {
+  animation: flashRed 3s ease-out;
+  border-radius: 4px;
+  padding: 2px 4px;
+  display: inline-block;
+}

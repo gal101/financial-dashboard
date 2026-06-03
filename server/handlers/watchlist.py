@@ -72,6 +72,15 @@ def handle_add_to_watchlist(body: dict) -> dict:
     with open(WATCHLIST_FILE, "w", encoding="utf-8") as f:
         json.dump(wl, f, ensure_ascii=False, indent=2)
 
+    # Add to active websocket subscriptions and subscribe
+    try:
+        import server
+        if server.streamer:
+            server.streamer.active_tickers.add(symbol)
+            server.streamer._resubscribe()
+            log.info(f"[watchlist] Added {symbol} to active websocket subscriptions")
+    except Exception as e:
+        log.warning(f"[watchlist] Could not update active subscriptions for {symbol}: {e}")
     # Also fetch prices from Yahoo
     log.info(f"[price] {symbol} — running price fetch...")
     _fetch_price_for(symbol)
@@ -120,6 +129,14 @@ def handle_delete_from_watchlist(symbol: str) -> dict:
     with open(WATCHLIST_FILE, "w", encoding="utf-8") as f:
         json.dump(wl, f, ensure_ascii=False, indent=2)
 
+    # Remove from active websocket subscriptions if present
+    try:
+        import server
+        if server.streamer and symbol in server.streamer.active_tickers:
+            server.streamer.active_tickers.discard(symbol)
+            log.info(f"[watchlist] Removed {symbol} from active websocket subscriptions")
+    except Exception as e:
+        log.warning(f"[watchlist] Could not update active subscriptions for {symbol}: {e}")
     # Also regenerate watchlist_data.json without the deleted symbol
     log.info(f"[price] {symbol} — regenerating watchlist prices after delete...")
     _fetch_price_for(symbol)

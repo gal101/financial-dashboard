@@ -56,10 +56,18 @@ def fetch_price(client, simbol):
         else:
             change_pct = 0.0
             
+        leverages = data.get("Leverage")
+        barriers = data.get("Barrier")
+        is_structured = False
+        if leverages and len(leverages) > 0 and leverages[0] is not None:
+            is_structured = True
+        if barriers and len(barriers) > 0 and barriers[0] is not None:
+            is_structured = True
         return {
             "price": round(price, 4),
             "change_pct": round(change_pct, 2),
             "updated_at": datetime.now(timezone.utc).isoformat(),
+            "is_structured": is_structured
         }
     except Exception as e:
         print(f"  ! Error fetching Tradeville price for {simbol}: {e}")
@@ -218,6 +226,7 @@ def main():
                 p = prices[sym]
                 h["pret_actual_RON"] = p["price"]
                 h["variatie_pret_pct"] = p["change_pct"]
+                h["tip"] = "struct" if p.get("is_structured") else "actiuni"
                 h["valoare_evaluata_RON"] = round(h["actiuni"] * p["price"], 2)
                 h["profit_pierdere_RON"] = round(
                     h["valoare_evaluata_RON"] - h["investitie_initiala_RON"], 2
@@ -254,7 +263,7 @@ def main():
                     p = prices[sym]
                     wl_prices[sym] = {
                         "price": p["price"],
-                        "changePct": p["change_pct"],
+                        "changePct": p["change_pct"] / 100,
                     }
                     
             # If targeted, load existing watchlist data to merge
@@ -287,4 +296,26 @@ def main():
     print("Gata!")
 
 if __name__ == "__main__":
-    main()
+    import time
+    start_time = time.time()
+    try:
+        with TradevilleClient() as client:
+            client.ping_task("Actualizare Portofoliu", "running")
+    except Exception:
+        pass
+    try:
+        main()
+        duration = round(time.time() - start_time, 2)
+        try:
+            with TradevilleClient() as client:
+                client.ping_task("Actualizare Portofoliu", "success", duration=duration)
+        except Exception:
+            pass
+    except Exception as e:
+        duration = round(time.time() - start_time, 2)
+        try:
+            with TradevilleClient() as client:
+                client.ping_task("Actualizare Portofoliu", "failed", error=str(e), duration=duration)
+        except Exception:
+            pass
+        raise e

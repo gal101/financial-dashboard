@@ -19,7 +19,10 @@
   <div class="last-up">
     <div style="margin-bottom:6px"><span id="ms" class="mkt c"><span class="dot r" id="md"></span><span id="mt">Se verifica...</span></span></div>
     <div>Ultima act.: <strong id="lu">--</strong></div>
-    <div style="margin-top:6px"><button class="btn" id="br" onclick="rp()">&#128260; Actualizeaza preturile</button></div>
+    <div style="margin-top:6px; display:flex; gap:8px; justify-content:flex-end">
+      <button class="btn" id="br" onclick="rp()">&#128260; Actualizeaza</button>
+      <a href="monitor.html" class="btn" style="text-decoration:none">&#128187; Monitor</a>
+    </div>
   </div>
 </div>
 
@@ -284,15 +287,16 @@ function renderTable(){
     var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
     var pond=total?val/total*100:0;
     var tr=document.createElement('tr');
+    tr.setAttribute('data-row-sym', h.simbol);
     tr.innerHTML='<td><a href="company.html?symbol='+h.simbol+'" class="sym" style="text-decoration:none">'+h.simbol+'</a></td>'+
     '<td><span class="nm">'+h.nume+'</span></td>'+
     '<td>'+h.actiuni.toLocaleString('ro-RO')+'</td>'+
     '<td>'+fmt(h.pret_medie_achizitie_RON,4)+'</td>'+
-    '<td><strong>'+fmt(cp,4)+'</strong></td>'+
-    '<td class="'+pnl(chg)+'">'+(chg>=0?'+':'')+fmt(chg)+'%</td>'+
-    '<td>'+fmt(val)+'</td>'+
-    '<td class="'+pnl(pl)+'"><strong>'+(pl>=0?'+':'')+fmt(pl)+'</strong></td>'+
-    '<td class="'+pnl(plp)+'">'+(plp>=0?'+':'')+fmt(plp)+'%</td>'+
+    '<td><strong data-price-sym="'+h.simbol+'">'+fmt(cp,4)+'</strong></td>'+
+    '<td class="'+pnl(chg)+'" data-chg-sym="'+h.simbol+'">'+(chg>=0?'+':'')+fmt(chg)+'%</td>'+
+    '<td data-val-sym="'+h.simbol+'">'+fmt(val)+'</td>'+
+    '<td class="'+pnl(pl)+'" data-pl-sym="'+h.simbol+'"><strong>'+(pl>=0?'+':'')+fmt(pl)+'</strong></td>'+
+    '<td class="'+pnl(plp)+'" data-plp-sym="'+h.simbol+'">'+(plp>=0?'+':'')+fmt(plp)+'%</td>'+
     '<td>'+fmt(pond,1)+'%</td>';
     tbody.appendChild(tr)
   })
@@ -306,14 +310,15 @@ function renderTurbo(){
     var val=h.actiuni*cp;var pl=val-h.investitie_initiala_RON;
     var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
     var tr=document.createElement('tr');
-    tr.innerHTML='<td><span class="sym">'+h.simbol+'</span></td>'+
+    tr.setAttribute('data-row-sym', h.simbol);
+    tr.innerHTML='<td><a href="company.html?symbol='+h.simbol+'" class="sym" style="text-decoration:none">'+h.simbol+'</a></td>'+
     '<td><span class="nm">'+h.nume+'</span></td>'+
     '<td>'+h.actiuni+'</td>'+
     '<td>'+fmt(h.pret_medie_achizitie_RON,4)+'</td>'+
-    '<td>'+fmt(cp,4)+'</td>'+
-    '<td>'+fmt(val)+'</td>'+
-    '<td class="'+pnl(pl)+'">'+(pl>=0?'+':'')+fmt(pl)+'</td>'+
-    '<td class="'+pnl(plp)+'">'+(plp>=0?'+':'')+fmt(plp)+'%</td>';
+    '<td><strong data-price-sym="'+h.simbol+'">'+fmt(cp,4)+'</strong></td>'+
+    '<td data-val-sym="'+h.simbol+'">'+fmt(val)+'</td>'+
+    '<td class="'+pnl(pl)+'" data-pl-sym="'+h.simbol+'">'+(pl>=0?'+':'')+fmt(pl)+'</td>'+
+    '<td class="'+pnl(plp)+'" data-plp-sym="'+h.simbol+'">'+(plp>=0?'+':'')+fmt(plp)+'%</td>';
     tbody.appendChild(tr)
   })
 }
@@ -748,10 +753,10 @@ function wlRender() {
     var priceStr = p ? fmt(p.price, 4) : '-';
     var chgStr = p ? fmtPct(p.changePct) : '-';
     var chgCls = p && p.changePct >= 0 ? 'pos' : 'neg';
-    html += '<tr>' +
+    html += '<tr data-wl-row-sym="' + s + '">' +
       '<td><a href="company.html?symbol=' + s + '" class="sym" style="text-decoration:none">' + s + '</a></td>' +
-      '<td>' + priceStr + '</td>' +
-      '<td class="' + chgCls + '">' + chgStr + '</td>' +
+      '<td><strong data-price-sym="' + s + '">' + priceStr + '</strong></td>' +
+      '<td class="' + chgCls + '" data-wl-chg-sym="' + s + '">' + chgStr + '</td>' +
       '<td><button class="btn" onclick="wlDelete(\'' + s + '\')" style="padding:2px 8px;font-size:.7rem">&#10005;</button></td>' +
       '</tr>';
   }
@@ -759,6 +764,93 @@ function wlRender() {
     html = '<tr><td colspan="4" style="text-align:center;color:var(--dim);padding:16px">Niciun simbol in watchlist. Adauga unul mai sus.</td></tr>';
   }
   tbody.innerHTML = html;
+}
+
+function recalculateKPIs() {
+  var all=STOCKS.concat(TURBO);
+  var invested=0,total=0;
+  all.forEach(function(h){invested+=h.investitie_initiala_RON;total+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
+  var pnlv=total-invested;
+  var pnlPct=invested?pnlv/invested*100:0;
+  document.getElementById('kv').textContent=fmt(total)+' RON';
+  document.getElementById('kvr').textContent=fmt(total,2)+' RON';
+  document.getElementById('ki').textContent=fmt(invested)+' RON';
+  document.getElementById('kp').textContent=(pnlv>=0?'+':'')+fmt(pnlv)+' RON';
+  document.getElementById('kp').className='kpi-val '+pnl(pnlv);
+  document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
+  document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
+  var rpnl=0;
+  if(DATA.realized_pnl&&DATA.realized_pnl.total_realized_loss_RON){
+    rpnl=DATA.realized_pnl.total_realized_loss_RON;
+  }
+  var realPnl=pnlv+rpnl;
+  var totalBuzunar=invested+(-rpnl);
+  var realPct=totalBuzunar?realPnl/totalBuzunar*100:0;
+  var rpel=document.getElementById('krp');
+  if(rpel){rpel.textContent=(realPnl>=0?'+':'')+fmt(realPnl)+' RON';rpel.className='kpi-val '+pnl(realPnl)}
+  var krprEl=document.getElementById('krpr');
+  if(krprEl){krprEl.textContent='return: '+(realPct>=0?'+':'')+fmt(realPct)+'%'}
+}
+
+function updateDOMForSymbol(sym, price, chg) {
+  var row = document.querySelector('[data-row-sym="' + sym + '"]');
+  if (row) {
+    var priceEl = row.querySelector('[data-price-sym="' + sym + '"]');
+    if (priceEl) priceEl.textContent = fmt(price, 4);
+    var chgEl = row.querySelector('[data-chg-sym="' + sym + '"]');
+    if (chgEl) {
+      chgEl.className = pnl(chg);
+      chgEl.textContent = (chg >= 0 ? '+' : '') + fmt(chg) + '%';
+    }
+    var holding = STOCKS.concat(TURBO).find(function(h) { return h.simbol === sym; });
+    if (holding) {
+      var newVal = holding.actiuni * price;
+      var valEl = row.querySelector('[data-val-sym="' + sym + '"]');
+      if (valEl) valEl.textContent = fmt(newVal);
+      var pl = newVal - holding.investitie_initiala_RON;
+      var plp = holding.investitie_initiala_RON ? pl / holding.investitie_initiala_RON * 100 : 0;
+      var plEl = row.querySelector('[data-pl-sym="' + sym + '"]');
+      var plpEl = row.querySelector('[data-plp-sym="' + sym + '"]');
+      if (plEl) {
+        plEl.className = pnl(pl);
+        plEl.innerHTML = '<strong>' + (pl >= 0 ? '+' : '') + fmt(pl) + '</strong>';
+      }
+      if (plpEl) {
+        plpEl.className = pnl(plp);
+        plpEl.textContent = (plp >= 0 ? '+' : '') + fmt(plp) + '%';
+      }
+    }
+  }
+  var wlRow = document.querySelector('[data-wl-row-sym="' + sym + '"]');
+  if (wlRow) {
+    var wlPriceEl = wlRow.querySelector('[data-price-sym="' + sym + '"]');
+    if (wlPriceEl) wlPriceEl.textContent = fmt(price, 4);
+    var wlChgEl = wlRow.querySelector('[data-wl-chg-sym="' + sym + '"]');
+    if (wlChgEl) {
+      wlChgEl.className = chg >= 0 ? 'pos' : 'neg';
+      wlChgEl.textContent = (chg >= 0 ? '+' : '') + fmt(chg) + '%';
+    }
+  }
+}
+var highlightTimers = {};
+function highlightPrice(sym, direction) {
+  var els = document.querySelectorAll('[data-price-sym="' + sym + '"]');
+  if (highlightTimers[sym]) {
+    clearTimeout(highlightTimers[sym]);
+    highlightTimers[sym] = null;
+  }
+  els.forEach(function(el) {
+    el.classList.remove('flash-green', 'flash-red');
+    void el.offsetWidth;
+    var cls = direction === 'up' ? 'flash-green' : 'flash-red';
+    el.classList.add(cls);
+  });
+  highlightTimers[sym] = setTimeout(function() {
+    els.forEach(function(el) {
+      el.classList.remove('flash-green', 'flash-red');
+    });
+    highlightTimers[sym] = null;
+  }, 3000);
 }
 
 // === BOOT ===
@@ -771,6 +863,12 @@ function wlRender() {
       TURBO=DATA.holdings.filter(function(h){return h.tip!=='actiuni'});
       STOCKS_ORIG=STOCKS.slice();TURBO_ORIG=TURBO.slice();
       initCharts();ra();
+      // Initialize prices from portfolio data
+      DATA.holdings.forEach(function(h){
+        if (!prices[h.simbol]) {
+          prices[h.simbol] = { price: h.pret_actual_RON, chg: h.variatie_pret_pct || 0, changePct: (h.variatie_pret_pct || 0) / 100 };
+        }
+      });
       document.querySelectorAll('thead').forEach(function(thead){
         thead.addEventListener('click',_hdrClick);
       });
@@ -782,6 +880,28 @@ function wlRender() {
     .catch(function(){console.log('company_data.json not available')});
   // Load watchlist
   wlLoad();
+  // Live price streaming via SSE
+  var es = new EventSource('/api/monitor/events');
+  es.addEventListener('price', function(e) {
+    try {
+      var tick = JSON.parse(e.data);
+      var sym = tick.sim;
+      if (sym && tick.pret) {
+        var oldPrice = prices[sym] ? prices[sym].price : null;
+        var newPrice = tick.pret;
+        var chg = tick.ref ? ((tick.pret - tick.ref) / tick.ref * 100) : 0;
+        prices[sym] = { price: newPrice, chg: chg, changePct: chg / 100 };
+        updateDOMForSymbol(sym, newPrice, chg);
+        recalculateKPIs();
+        ul();
+        if (oldPrice !== newPrice) {
+          highlightPrice(sym, newPrice > oldPrice ? 'up' : 'down');
+        }
+      }
+    } catch(err) {
+      console.error('Error parsing SSE price tick:', err);
+    }
+  });
   ums();ul();
   setInterval(ums,60000);
 })();

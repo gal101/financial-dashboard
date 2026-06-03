@@ -131,6 +131,7 @@ function filterPriceHistory(prices, period) {
   return prices.filter(function(p) { return new Date(p.date) >= cutoff; });
 }
 
+
 var currentPeriod = '1y';
 
 function renderPriceChart() {
@@ -488,6 +489,64 @@ document.addEventListener('DOMContentLoaded', function() {
     finMode = btn.dataset.mode;
     var comp = CD && CD.companies ? CD.companies[SIMBOL] : null;
     if (comp) renderFinancialCharts(comp);
+  });
+  var highlightTimer = null;
+
+  // Live price streaming via SSE
+  var es = new EventSource('/api/monitor/events');
+  es.addEventListener('price', function(e) {
+    try {
+      var tick = JSON.parse(e.data);
+      if (tick.sim === SIMBOL && tick.pret) {
+        var comp = CD && CD.companies ? CD.companies[SIMBOL] : null;
+        var oldPrice = comp ? (comp.pret_actual_RON || comp.last_price) : null;
+        var newPrice = tick.pret;
+        var prEl = document.getElementById('ch-price');
+        if (prEl) {
+          prEl.textContent = fmt(newPrice, 4) + ' RON';
+          if (oldPrice !== null && oldPrice !== newPrice) {
+            if (highlightTimer) {
+              clearTimeout(highlightTimer);
+              highlightTimer = null;
+            }
+            prEl.classList.remove('flash-green', 'flash-red');
+            void prEl.offsetWidth; // trigger reflow
+            var flashClass = newPrice > oldPrice ? 'flash-green' : 'flash-red';
+            prEl.classList.add(flashClass);
+            highlightTimer = setTimeout(function() {
+              prEl.classList.remove(flashClass);
+              highlightTimer = null;
+            }, 3000);
+          }
+        }
+        var change_pct = tick.ref ? ((tick.pret - tick.ref) / tick.ref * 100) : 0;
+        var cls = change_pct >= 0 ? 'pos' : 'neg';
+        var chEl = document.getElementById('ch-change');
+        if (chEl) {
+          chEl.innerHTML = '<span class="' + cls + '">' + fmtPct(change_pct / 100) + '</span>';
+        }
+        if (comp) {
+          comp.pret_actual_RON = newPrice;
+          if (comp.metrics) {
+            var m = comp.metrics;
+            if (m.sharesOutstanding) {
+              m.marketCap = newPrice * m.sharesOutstanding;
+              var eps = m.ttm_net_income / m.sharesOutstanding;
+              if (eps > 0) m.trailingPE = newPrice / eps;
+            }
+            if (m.bookValuePerShare) m.priceToBook = newPrice / m.bookValuePerShare;
+            else if (m.bookValue && m.sharesOutstanding) {
+              var bvps = m.bookValue / m.sharesOutstanding;
+              if (bvps > 0) m.priceToBook = newPrice / bvps;
+            }
+            if (m.dividend && m.dividend > 0) m.dividendYield = (m.dividend / newPrice) * 100;
+            renderMetrics(m);
+          }
+        }
+      }
+    } catch(err) {
+      console.error('Error parsing SSE price tick:', err);
+    }
   });
 });
 

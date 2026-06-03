@@ -119,8 +119,25 @@ def main():
                 )
                 conn.commit()
 
-            # 2. Fetch price history
-            prices = client.get_daily_values(sym, start_date=five_years_ago)
+            # 2. Fetch price history (incremental)
+            start_dt = five_years_ago
+            max_date_str = None
+            try:
+                row = conn.execute(
+                    "SELECT MAX(date) as max_date FROM price_history WHERE symbol = ?",
+                    (sym,)
+                ).fetchone()
+                if row and row["max_date"]:
+                    max_date_str = row["max_date"]
+                    max_date = datetime.strptime(max_date_str, "%Y-%m-%d").date()
+                    start_dt = max_date + timedelta(days=1)
+            except Exception as e:
+                print(f"(db error: {e})", end=" ")
+                start_dt = five_years_ago
+            if start_dt > date.today():
+                print(f"UP-TO-DATE (max date: {max_date_str})")
+                continue
+            prices = client.get_daily_values(sym, start_date=start_dt)
             if prices:
                 n = upsert_prices(conn, sym, prices)
                 total_prices += n
@@ -141,4 +158,27 @@ def main():
     print("\nMetrics updated.")
 
 if __name__ == "__main__":
-    main()
+    import time
+    start_time = time.time()
+    try:
+        from shared.tradeville_client import TradevilleClient
+        with TradevilleClient() as client:
+            client.ping_task("Actualizare Date Istorice", "running")
+    except Exception:
+        pass
+    try:
+        main()
+        duration = round(time.time() - start_time, 2)
+        try:
+            with TradevilleClient() as client:
+                client.ping_task("Actualizare Date Istorice", "success", duration=duration)
+        except Exception:
+            pass
+    except Exception as e:
+        duration = round(time.time() - start_time, 2)
+        try:
+            with TradevilleClient() as client:
+                client.ping_task("Actualizare Date Istorice", "failed", error=str(e), duration=duration)
+        except Exception:
+            pass
+        raise e

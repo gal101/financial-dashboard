@@ -31,6 +31,22 @@ class TradevilleClient:
             log.warning(f"[offline] Local Tradeville Proxy is down: {e}")
             return {"error": "offline", "is_offline": True}
 
+    def ping_task(self, name: str, status: str, error: str = None, duration: float = None) -> dict:
+        url = "http://127.0.0.1:8089/api/monitor/task-ping"
+        session = self.session if self.session else requests
+        try:
+            payload = {
+                "task": name,
+                "status": status,
+                "error": error,
+                "duration": duration
+            }
+            response = session.post(url, json=payload, timeout=5)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            return {"error": str(e)}
+
     def format_date(self, d) -> str:
         month_map = {
             1: "jan", 2: "feb", 3: "mar", 4: "apr", 5: "may", 6: "jun",

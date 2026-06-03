@@ -6,6 +6,8 @@
 > **Vezi [PRD.md](./PRD.md) pentru planul curent de implementare (MVP).**
 > Acest document conține TOATE ideile, inclusiv cele pentru iterații viitoare.
 
+
+**Notă istorică:** Proiectul a migrat integral de la Yahoo Finance (`yfinance`) la Tradeville API (WebSocket + proxy HTTP unificat pe portul `8089`, cu streaming live prin SSE și monitorizare în `monitor.html`). Toate cotațiile de preț (live & istoric) și metadatele provin acum direct din sursa Tradeville (stocată local în SQLite ca sursă unică de adevăr).
 ---
 
 ## Cuprins
@@ -207,25 +209,34 @@ Notificare (Telegram) cand o actiune atinge un pret target.
 ## Arhitectura generala
 
 ```
-[Browser container (viitor)]
-    |  Playwright scraping
-    v
-BVB.ro + site-uri companii
-    |
-    | (date buget, calendar, IR links)
-    v
-[company_data.json] ──── yfinance (preturi, financiare, metrici)
-    |
-    v
-[dashboard.html] (static, servit de nginx)
-    |
-    |-- Portfolio overview (tabele, KPI-uri, grafice)
-    |-- Company Profile (modal, la click pe simbol)
-         |-- Price + PE charts (Chart.js)
-         |-- Financial results (quarterly + annual)
-         |-- Budget overlay (daca datele exista)
-         |-- Calendar
-         |-- News links
+┌──────────────────────────────────────────────────────────────┐
+│ TradevilleStreamer (WebSocket daemon)                        │
+│   wss://api.tradeville.ro:443                                │
+│   ┌──────────┐  ┌───────────┐  ┌────────────┐              │
+│   │TX (0.6s) │  │RX (match) │  │Push Worker │              │
+│   │out_queue │  │pending_req│  │push_queue  │              │
+│   └──────────┘  └───────────┘  └─────┬──────┘              │
+│        │              │               │                     │
+│        ▼              ▼               ▼                     │
+│   ┌─────────────────────────────────────────┐              │
+│   │ HTTP Proxy: POST /api/tradeville/request│              │
+│   └────────────────────┬────────────────────┘              │
+│                        │ Live SSE broadcast                 │
+│                        ▼                                   │
+│                 sse_manager (price, log, task, status)      │
+└────────────────────────┬───────────────────────────────────┘
+                         │
+                         ▼ (SSE: /api/monitor/events)
+┌──────────────────────────────────────────────────────────────┐
+│ ThreadingHTTPServer (Port 8089)                               │
+│   - Static files: dashboard.html, company.html, monitor.html │
+│   - REST API: /company, /watchlist, /transactions, /logs    │
+│   - Controls: /api/monitor/reconnect, sync-*, restart       │
+│   - Dynamic price overlay on bvb_portfolio.json              │
+│                         │                                     │
+│                         ▼                                     │
+│              bvb_dashboard.db (SQLite, WAL mode)              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## 🔒 Securitatea datelor personale

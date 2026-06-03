@@ -1,82 +1,84 @@
 ## Problem Statement
 
-The BVB Financial Dashboard currently relies on Yahoo Finance (`yfinance`) as its source of market prices and price history. However, Yahoo Finance presents several severe limitations for this project:
-1. **Unreliability and Rate Limits:** Yahoo Finance requests frequently suffer from rate limits, slow response times, or IP blocks.
-2. **Missing Instruments:** Yahoo Finance does not list BVB structural products (such as Turbo Certificates like `EBTLVTL19`), forcing the dashboard to ignore them or use stale reference prices.
-3. **Inconsistent Symbol Formats:** Yahoo Finance requires BVB tickers to be suffixed with `.RO` (e.g., `TLV.RO`), which introduces complexity and mapping layers compared to the clean, native BVB tickers used inside the database and portfolio files.
-4. **Data Discrepancies:** Key financial figures on Yahoo Finance are often stale or incorrect for Romanian equities.
+The BVB Financial Dashboard currently operates with two separate server processes (a static file server on port 8080 and an API/WebSocket proxy server on port 8089) and relies on external cron jobs that do not report their status back to the user. This architecture has several limitations:
+1. **Complexity:** Running and maintaining two separate ports causes CORS complications and developer overhead (managing multiple terminal windows/containers).
+2. **Lack of Real-Time Updates:** The frontend does not receive real-time updates. It must poll static files or trigger manual refreshes, creating lag and unnecessary disk writes.
+3. **Black-Box Automation:** Cron jobs (triggered via Hermes) execute silently. If a job fails or runs slow, the user has no visibility unless they check container logs.
+4. **Inefficient API Usage:** The daily history updater fetches the entire 5-year OHLCV dataset for every symbol on every run, leading to high latency and redundant API usage.
+5. **No Centralized Control:** There is no UI-based admin interface to monitor server health, view live log output, or manually trigger maintenance tasks (like force-reconnecting the WebSocket or syncing portfolio holdings).
 
 ## Solution
 
-Migrate the market data sourcing from Yahoo Finance to the official Tradeville API. Tradeville is the primary BVB retail broker, offering native access to all BVB instruments (including equities, bonds, and structured products) using clean BVB tickers without suffixes. 
-
-Since the Python backend server runs persistently inside a Docker container (as part of a Docker Compose setup behind Nginx), the migration will combine two patterns:
-1. **Persistent WebSocket Streaming (Live):** A background thread/worker (`TradevilleStreamer`) running in the persistent backend container will connect to Tradeville, authenticate once, and subscribe to all active symbols. It will listen for real-time price updates (push notifications) and cache them, enabling instantaneous dashboard refreshes.
-2. **On-Demand Requests (Short-Lived):** Short-lived, synchronous connections using a helper client (`TradevilleClient`) will be used to fetch historical chart data (`DailyValues`) on-demand when a user loads a company profile.
+We will unificate the backend and frontend into a single Python server on port 8089, introduce a real-time event streaming layer using Server-Sent Events (SSE), optimize the database updates to be incremental, and build a dedicated Server Monitor page inside the dashboard. Tailscale will remain the secure entrypoint for private user access, eliminating the need for public domain exposure.
 
 ## User Stories
 
-1. As a portfolio owner, I want my holdings' current prices to be fetched from Tradeville, so that I have the most accurate and reliable valuation for my BVB shares.
-2. As a portfolio owner, I want to track the valuation of my turbo certificates and structural products (like `EBTLVTL19`), so that my total portfolio value is complete and correct.
-3. As a watchlist user, I want the watchlist prices to be updated server-side from Tradeville, so that I can see the latest market state without CORS or rate-limit issues.
-4. As a dashboard user, I want my company profile charts to load historical price data fetched from Tradeville, so that I can view accurate 5-year price trends.
-5. As an administrator, I want a setup script to configure my Tradeville credentials once, so that I don't have to manually edit environment files.
-6. As a developer, I want the system to fall back to demo credentials automatically if my custom credentials are not set up, so that the application is immediately runnable after cloning.
-7. As a system runner, I want the WebSocket connections to be reused during batch updates (like updating all portfolio holdings at once), so that the update process is fast and doesn't spam login requests.
-8. As a persistent server host, I want a background worker to maintain a persistent connection for streaming live quotes, so that my dashboard has access to real-time prices and updates instantaneously without making repeated REST or WebSocket handshakes on every page load.
-9. As a system operator, I want to be able to fetch prices and history for a specific single symbol when adding it to my watchlist, so that I don't trigger a slow full update of all symbols and hit API rate limits.
-10. As a dashboard viewer, I want to toggle between a standard Close line chart and a Min-Max daily range chart on the company profile, so that I can see the intraday volatility and price trends in the same view.
+1. As a dashboard viewer, I want to access both the web pages and the API from a single port (8089), so that I don't have to manage CORS issues or multiple server processes.
+2. As a dashboard viewer, I want to see price updates, market depth, and portfolio valuations change on my screen in real-time, so that I can monitor BVB sessions dynamically without clicking manual refresh.
+3. As a server administrator, I want a dedicated Server Monitor panel in the dashboard, so that I can see the server status, live logs, and background tasks in one place.
+4. As a server administrator, I want to see the execution history and status of automated cron jobs (Hermes pings), so that I know if the daily updates succeeded or failed.
+5. As a server administrator, I want buttons in the monitor panel to manually trigger a portfolio sync, force a WebSocket reconnection, or run a database update, so that I can control the system without SSH-ing into the server.
+6. As a system operator, I want the server to only fetch the missing price history (incremental fetch) since the last recorded date for existing companies, so that database updates are extremely fast and consume minimal API quota.
+7. As a watchlist user, I want the system to keep historical data in the database when I remove a symbol from my watchlist, so that if I add it back later or have past transactions with it, the history is immediately available.
 
-### 1. Centralized WebSocket Gateway & Streaming Daemon
-To prevent rate limit issues (max 20 commands per 10 seconds) and avoid multi-login conflicts, all communication with the Tradeville API is centralized through a single gateway running inside `server.py`:
-* **Single WebSocket Connection:** The `TradevilleStreamer` background daemon maintains the *only* active WebSocket connection to Tradeville.
-* **Local HTTP Proxy Endpoint:** `server.py` exposes a private internal HTTP endpoint (`POST /api/tradeville/request`). CLI scripts (like `company_fetcher.py` or `portfolio_updater.py`) do not connect to Tradeville directly; they send standard POST requests to this local proxy with their target JSON command payload.
-* **Transmitter Queue (Throttling):** The gateway maintains a thread-safe Python `queue.Queue` for outbound requests. A dedicated sender thread pulls requests from this queue and enforces a minimum `0.6s` cooldown between consecutive API requests. The sleep duration is calculated dynamically as `max(0, 0.6 - (current_time - last_sent_time))` to maximize throughput while guaranteeing we never exceed the 20 requests per 10 seconds limit.
-* **Request-Response Sync:** The local HTTP handler puts the command into the queue along with a `threading.Event`. When the WebSocket receiver thread receives the matching command response from Tradeville, it populates the result and calls `.set()` on the event to instantly unblock and return the HTTP response to the caller.
-* **Parallel Worker Thread Pool (Live Push):** Unsolicited push messages (like real-time price updates `updtype: "CA"`) are caught by the receiver thread and immediately dropped into a separate **Processing Queue**. A pool of worker threads (`ThreadPoolExecutor` or dedicated worker threads) processes these messages in parallel (calculating price changes, updating memory cache, and writing to SQLite). This ensures the WebSocket receive buffer is never blocked, even during heavy trading volumes.
-* **Autologin & Demo Fallback:** The streaming daemon reads credentials from the environment and falls back to the public demo credentials (`!DemoAPITDV` / `DemoAPITDV` / `demo: true`) automatically.
-### 2. Credentials Configuration
-We will introduce two interactive setup scripts (`setup_credentials.py` and `setup_credentials.sh`) in the project root:
-- They will prompt the user to input `TRADEVILLE_USER`, `TRADEVILLE_PASSWORD`, and `TRADEVILLE_DEMO` (Y/N).
-- They will generate a `.env` file containing these variables, which will be loaded via `python-dotenv` or manual parsing inside config files.
-- The `.env` file is added to `.gitignore`.
+## Implementation Decisions
 
-### 3. Symbol Format & Structured Products
-- All symbol queries will be done using the exact BVB tickers (e.g., `TLV`, `SNP`, `EBTLVTL19`) without suffixes.
-- Filtering out certificates starting with `EBTLV` will be completely removed, allowing active valuation of structured products.
+### 1. Unified Python HTTP Server
+*   Modify `DashboardHandler` in `server/server.py` to route and serve static files (HTML, CSS, JS, images, JSON) directly from the repository root.
+*   Implement secure file serving with MIME-type mapping (`.html` -> `text/html`, `.css` -> `text/css`, `.js` -> `application/javascript`, `.json` -> `application/json`, etc.) and directory traversal protection.
+*   Decommission the second static server (port 8080) from `run.bat` and all configurations.
 
-### 4. Date Parameter Formatting & SQLite OHLCV Schema
-- We will implement a helper `format_date_to_tradeville` to translate dates to the Tradeville API format: `<day><month_3_letters_english_lowercase><year_2_digits>` (e.g. `2jun21` for `2021-06-02`).
-- **SQLite Schema Expansion:** The SQLite `price_history` table will be modified to support full OHLCV by adding `open`, `high`, `low`, and `volume` columns. The Python data access layer (`db.py`) will be updated to insert, query, and export these fields in the JSON payload sent to the frontend.
+### 2. Server-Sent Events (SSE) Streaming Layer
+*   Add a new SSE endpoint `/api/monitor/events` in the HTTP server.
+*   Establish persistent connections from the browser. The server will stream live events formatted as `data: { ... }` with the following event types:
+    *   `price`: Live price tick updates (`updtype: "CA"`) received from Tradeville WebSocket.
+    *   `log`: Live stdout/stderr log entries.
+    *   `task`: Cron job/task start, completion, and failure events.
+    *   `status`: Tradeville WebSocket connection and API rate-limiting queue status.
+*   Update `TradevilleStreamer` to push incoming live ticks to all active SSE subscribers in addition to writing them to the SQLite database.
 
-### 5. Script Modifications & Targeted Queries
-* **Targeted CLI Queries:** Both `portfolio_updater.py` and `company_fetcher.py` will be modified to optionally accept specific symbols as CLI arguments (e.g. `python company_fetcher.py TLV`). If arguments are provided, they will only query Tradeville for those specific symbols.
-* **`portfolio_updater.py`:** Replaced `yfinance` fetcher with a `TradevilleClient` context block that fetches prices in a loop (using targeted symbols if passed via CLI, else all symbols).
-* **`company_fetcher.py`:** Replaced `yfinance.Ticker.history` with `TradevilleClient.get_daily_values`. If specific symbols are passed via CLI, it fetches history and structural metadata (via `Symbol` command) only for those symbols, saving it to SQLite. It will extract and insert the full OHLCV datasets (`open`, `high`, `low`, `volume`, `close`) from Tradeville's `DailyValues` command.
-* **`server/handlers/refresh.py` & `watchlist.py`:** Updated to trigger targeted updates (passing the specific symbol to the script subprocesses) when a new company is added to the watchlist.
+### 3. In-Memory Logging & Broadcasting
+*   Implement a custom `MemoryLogHandler(logging.Handler)` that stores the last 300 logs in a `collections.deque` (in-memory circular buffer).
+*   Attach this handler to the root logger in `server.py`.
+*   When a client connects to the SSE stream, dump the buffered logs immediately, then stream new logs as they are generated.
 
-### 6. Automated Portfolio Sync & Personal Activity Log
-* **Automated Portfolio Sync:** `portfolio_updater.py` will be modified to query Tradeville's `Portfolio` command via the local HTTP proxy gateway. If real credentials are used, it will automatically sync holding symbols, quantities, and average buy prices (`AvgPrice`) directly from the Tradeville account, dynamically updating/overwriting the local `bvb_portfolio.json` before calculating valuations.
-* **Activity Sync & Realized P/L:** A new sync mechanism (`activity_sync.py` script or server background task) will query the `Activity` command for the account's transaction history. It will populate a new SQLite table `user_transactions` (`date`, `op_type`, `symbol`, `quantity`, `price`, `commission`, `amount`) to track buy/sell logs, calculate realized profits, and log actual dividends received, displaying them in a new UI transaction view.
+### 4. Server Monitor Panel
+*   Add a "Monitor" tab or modal in `dashboard.html` (or create a dedicated `monitor.html` accessible from the sidebar).
+*   The monitor UI will feature:
+    *   **WebSocket Status:** Connection state (Connected, Disconnected, Reconnecting) and latency.
+    *   **Live Logging:** A scrollable terminal-style box showing the live log stream.
+    *   **Task/Cron Tracker:** A list of automated tasks (Portfolio Sync, Metadata Update, Daily History) showing the last run time, execution duration, and outcome.
+    *   **Control Buttons:** 
+        *   `Sync Portfolio` -> Calls the internal portfolio update task.
+        *   `Force Reconnect` -> Triggers `streamer.force_reconnect()`.
+        *   `Trigger History Update` -> Triggers the incremental history sync.
+        *   `Reset Subscriptions` -> Refreshes active WebSocket subscriptions.
 
-### 7. Frontend Dual-Chart Toggle & Volume Overlay
-* **Toggle UI:** A new button group (`#ch-type-btns`) will be added to `company.html` next to the period buttons, displaying two toggle options: `Linie` (Line Chart) and `Min-Max` (Daily Range Chart).
-* **Discrete Volume Overlay:** A separate volume bar dataset (`type: 'bar'`, `data: prices.map(p => p.volume)`) will be added to the chart. It will be mapped to a hidden secondary Y-axis (`yVolume`) scaled so that the volume bars only occupy the bottom 15-20% of the chart area (acting as a discrete, non-overlapping background indicator).
-* **Chart Rendering (`company_profile.js`):**
-  * **Line Chart:** Rendered using the Close price dataset overlaying the volume bars.
-  * **Min-Max Chart:** The daily price range is rendered as a vertical floating bar (`type: 'bar'`, `data: [[low, high]]`) with a very thin `barThickness` (e.g. 2px). The closing price is overlaid as a scatter points dataset (`type: 'line'`, `showLine: false`, `pointRadius: 2`), both overlaying the discrete volume bars.
+### 5. Incremental History Fetching
+*   Modify `company_fetcher.py` to optimize daily historical updates.
+*   Before requesting daily values, query the SQLite `price_history` table for `MAX(date)` for the target ticker.
+*   If a record exists, set the Tradeville request `dstart` to `max_date + 1 day`.
+*   If no record exists, default to fetching the full 5-year history.
+
+### 6. Scheduled Task Tracker (Ping-back API)
+*   Add `POST /api/monitor/task-ping` to `server.py` to register task status updates.
+*   Update `portfolio_updater.py` and `company_fetcher.py` to send a start ping and end ping (with success/error details) when they run via Hermes cron.
+
+### 7. Watchlist Deletion
+*   When deleting a symbol from the watchlist, only remove it from `watchlist.json`. Do **not** delete any historical price rows or metadata from the SQLite tables.
+*   Dynamically remove the deleted symbol from `TradevilleStreamer.active_tickers` so we no longer stream live ticks for it.
 
 ## Testing Decisions
 
-- **Integration Verification:** A test script `test_tradeville.py` will be created to check connection, login, `Symbol` queries, and `DailyValues` history retrieval.
-- **Unit Testing:** Helper logic (such as date formatting `format_date_to_tradeville`) will be written in a modular, pure-functional way to be easily tested.
-- **Prior Art:** Since there are no existing unit tests in this repository, `test_tradeville.py` will serve as the initial integration testing harness.
+*   **SSE Testing:** Verify that multiple browser tabs can establish concurrent SSE connections without leaking file descriptors or blocking the main HTTP event loop.
+*   **Logging Capture:** Write unit checks to ensure the `MemoryLogHandler` does not overflow or leak memory, and correctly filters log levels before broadcasting.
+*   **Incremental Fetch Validation:** Test `company_fetcher.py` on a symbol with existing history to confirm it only requests the delta, and on a new symbol to confirm it fetches the full 5-year range.
 
 ## Out of Scope
 
-* **Order Placement:** Launching or managing orders on Tradeville accounts is completely out of scope. The API is strictly used for reporting and data retrieval.
-* **Bi-directional WebSocket between Frontend and Backend:** Implementing WebSockets or Server-Sent Events (SSE) to push prices to the frontend browser dynamically is out of scope. The frontend will still fetch data via HTTP polling/refreshes, but the backend will serve these requests instantly from its background stream cache.
+*   **Public Authentication:** Adding secure login pages, cookies, or OAuth is out of scope. Tailscale is the designated VPN tool for access control.
+*   **Trade Execution:** Initiating trades or managing order books remains out of scope.
+
 ## Further Notes
 
-- In case of network drops or timeout during batch queries, the client should implement retry logic or graceful error recovery (falling back to existing stored prices if Tradeville fails).
-- **Server Container Downtime Safety:** When CLI scripts (`portfolio_updater.py`, `company_fetcher.py`) are triggered via cron jobs while the persistent server container is stopped or restarting (resulting in a local connection refusal), they MUST catch the connection exception gracefully, write a clean error log (e.g. `[offline] Local Tradeville Proxy is down. Skipping update.`), and exit with a code `0` (or write safe fallbacks) without crashing or corrupting the SQLite database.
+*   Ensure the SSE stream handles browser disconnections cleanly without throwing unhandled socket exceptions on the server.

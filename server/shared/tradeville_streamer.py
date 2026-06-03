@@ -4,7 +4,7 @@ import time
 import json
 import logging
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor
 import pytz
 import dotenv
@@ -28,8 +28,9 @@ class TradevilleStreamer(threading.Thread):
         self.last_volz = {}
         self.active_tickers = set()
         self.authenticated = False
-        
-        self.worker_pool = ThreadPoolExecutor(max_workers=4)
+        self._last_tick_key = ""
+        self.on_push_callbacks = []
+
         self.ws = None
         
     def run(self):
@@ -81,8 +82,8 @@ class TradevilleStreamer(threading.Thread):
                 self.authenticated = True
                 log.info("[tradeville] Authenticated successfully.")
                 
-                # Resubscribe to active tickers if any
-                self._resubscribe()
+                # Sync portfolio and subscribe to all symbols
+                self._sync_portfolio_and_subscribe()
                 
                 # Wait for receiver loop to finish (e.g. on disconnect)
                 receiver_thread.join()
@@ -145,7 +146,8 @@ class TradevilleStreamer(threading.Thread):
                     
                 response = json.loads(msg)
                 
-                if response.get("updtype") == "CA":
+                updtype = response.get("updtype")
+                if updtype in ("CA", "TA"):
                     self.push_queue.put(response)
                     continue
                     
@@ -207,9 +209,11 @@ class TradevilleStreamer(threading.Thread):
         while self.running:
             try:
                 tick = self.push_queue.get(timeout=1)
+                self._process_push_tick(tick)
             except queue.Empty:
                 continue
-            self.worker_pool.submit(self._process_push_tick, tick)
+            except Exception as e:
+                log.error(f"[tradeville] Error in push worker: {e}")
             
     def _process_push_tick(self, tick):
         symbol = tick.get("sim")
@@ -217,6 +221,11 @@ class TradevilleStreamer(threading.Thread):
             return
         price = tick.get("pret")
         volz = tick.get("volz") or 0
+        # Deduplicate identical ticks (Tradeville sends everything twice)
+        tick_key = f"{symbol}|{price}|{volz}"
+        if tick_key == self._last_tick_key:
+            return
+        self._last_tick_key = tick_key
         
         # Update memory cache
         self.price_cache[symbol] = tick
@@ -269,7 +278,13 @@ class TradevilleStreamer(threading.Thread):
                 )
             else:
                 conn.execute(
-                    "INSERT INTO price_history (symbol, date, open, high, low, close, volume) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    """INSERT INTO price_history (symbol, date, open, high, low, close, volume) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(symbol, date) DO UPDATE SET 
+                         close = excluded.close,
+                         high = MAX(price_history.high, excluded.high),
+                         low = MIN(price_history.low, excluded.low),
+                         volume = excluded.volume""",
                     (symbol, today, price, price, price, price, volz)
                 )
             conn.commit()
@@ -277,7 +292,155 @@ class TradevilleStreamer(threading.Thread):
             log.error(f"[tradeville] Error updating price history: {e}")
         finally:
             conn.close()
+        # Update portfolio/watchlist cache files on disk in real-time
+        self._update_disk_cache(symbol, price, tick.get("ref"))
+
+        # Run push callbacks
+        for cb in self.on_push_callbacks:
+            try:
+                cb(tick)
+            except Exception as e:
+                log.error(f"[tradeville] Error in push callback: {e}")
+
             
+    def _sync_portfolio_and_subscribe(self):
+        portfolio_payload = {
+            "cmd": "Portfolio",
+            "prm": {"data": None}
+        }
+        event = threading.Event()
+        self.pending_requests[("Portfolio", None)] = {"event": event, "response": None}
+        self.out_queue.put(portfolio_payload)
+        
+        watchlist_symbols = set()
+        from shared.config import WATCHLIST_FILE
+        if os.path.exists(WATCHLIST_FILE):
+            try:
+                with open(WATCHLIST_FILE, "r", encoding="utf-8") as f:
+                    w_data = json.load(f)
+                    for sym in w_data.get("simbols", []):
+                        if sym:
+                            watchlist_symbols.add(sym)
+            except Exception as e:
+                log.warning(f"[tradeville] Error reading watchlist: {e}")
+                
+        self.active_tickers.update(watchlist_symbols)
+        
+        if event.wait(timeout=10):
+            response = self.pending_requests.pop(("Portfolio", None), {}).get("response")
+            if response and response.get("data") and "Symbol" in response["data"]:
+                portfolio_symbols = response["data"]["Symbol"]
+                for sym in portfolio_symbols:
+                    if sym and sym != "RON":
+                        self.active_tickers.add(sym)
+                # Seed price_cache with MarketPrice so dashboard shows latest prices on load
+                market_prices = response["data"].get("MarketPrice", [])
+                for i, sym in enumerate(portfolio_symbols):
+                    if sym and sym != "RON" and i < len(market_prices):
+                        price_val = market_prices[i]
+                        if price_val and price_val > 0 and sym not in self.price_cache:
+                            self.price_cache[sym] = {"sim": sym, "pret": price_val}
+                log.info(f"[tradeville] Synced {len(portfolio_symbols)} symbols from live portfolio: {', '.join(self.active_tickers)}")
+            else:
+                log.warning(f"[tradeville] Failed to parse live portfolio symbols: {response}")
+        else:
+            self.pending_requests.pop(("Portfolio", None), None)
+            log.warning("[tradeville] Portfolio sync timed out on startup.")
+            
+        self._resubscribe()
+        # Background: fetch accurate Price/RefPrice via Symbol for each holding
+        tickers_to_fetch = list(self.active_tickers)
+        if tickers_to_fetch:
+            threading.Thread(target=self._fetch_symbol_details, args=(tickers_to_fetch,), daemon=True).start()
+
+    def _fetch_symbol_details(self, tickers):
+        """Fetch accurate Price and RefPrice via Symbol command for each ticker."""
+        for sym in tickers:
+            if not self.running:
+                return
+            try:
+                payload = {"cmd": "Symbol", "prm": {"symbol": sym}}
+                event = threading.Event()
+                self.pending_requests[("Symbol", sym)] = {"event": event, "response": None}
+                self.out_queue.put(payload)
+                if event.wait(timeout=10):
+                    resp = self.pending_requests.pop(("Symbol", sym), {}).get("response")
+                    if resp and resp.get("data"):
+                        d = resp["data"]
+                        price = (d.get("Price") or [None])[0]
+                        ref = (d.get("RefPrice") or [None])[0]
+                        if price and price > 0:
+                            self.price_cache[sym] = {"sim": sym, "pret": price, "ref": ref}
+                            self._update_disk_cache(sym, price, ref)
+                            tick_data = {"sim": sym, "pret": price, "ref": ref}
+                            for cb in self.on_push_callbacks:
+                                try:
+                                    cb(tick_data)
+                                except Exception as ex:
+                                    log.debug(f"[tradeville] Error in symbol fetch callback: {ex}")
+                else:
+                    self.pending_requests.pop(("Symbol", sym), None)
+            except Exception as e:
+                log.debug(f"[tradeville] Error fetching symbol details for {sym}: {e}")
+        log.info(f"[tradeville] Background symbol detail fetch complete for {len(tickers)} tickers")
+
+    def _update_disk_cache(self, symbol, price, ref_price):
+        if not price:
+            return
+        from shared.config import PORTFOLIO_FILE, WATCHLIST_DATA_FILE
+        if os.path.exists(PORTFOLIO_FILE):
+            try:
+                with open(PORTFOLIO_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                updated = False
+                for h in data.get("holdings", []):
+                    if h.get("simbol") == symbol:
+                        h["pret_actual_RON"] = price
+                        if ref_price:
+                            h["variatie_pret_pct"] = round(((price - ref_price) / ref_price) * 100, 2)
+                        h["pret_updated_at"] = datetime.now(timezone.utc).isoformat()
+                        updated = True
+                        qty = h.get("actiuni", 0)
+                        h["valoare_evaluata_RON"] = round(price * qty, 2)
+                        inv = h.get("investitie_initiala_RON", 0)
+                        h["profit_pierdere_RON"] = round(price * qty - inv, 2)
+                if updated:
+                    temp_path = PORTFOLIO_FILE + ".tmp"
+                    with open(temp_path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                    # Recompute metadata totals
+                    meta = data.get("metadata", {})
+                    total_val = 0
+                    total_inv = 0
+                    for h in data.get("holdings", []):
+                        total_val += h.get("valoare_evaluata_RON", 0)
+                        total_inv += h.get("investitie_initiala_RON", 0)
+                    meta["total_evaluare_RON"] = round(total_val, 2)
+                    meta["total_investit_RON"] = round(total_inv, 2)
+                    meta["total_profit_pierdere_RON"] = round(total_val - total_inv, 2)
+                    meta["return_total_pct"] = round((total_val - total_inv) / total_inv * 100, 2) if total_inv else 0
+                    meta["last_price_update"] = datetime.now(timezone.utc).isoformat()
+                    os.replace(temp_path, PORTFOLIO_FILE)
+            except Exception as e:
+                log.debug(f"[tradeville] Error updating portfolio file: {e}")
+        if os.path.exists(WATCHLIST_DATA_FILE):
+            try:
+                with open(WATCHLIST_DATA_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                prices_dict = data.get("prices", {})
+                if symbol in prices_dict:
+                    prices_dict[symbol]["price"] = price
+                    if ref_price:
+                        prices_dict[symbol]["changePct"] = round((price - ref_price) / ref_price, 4)
+                    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+                    temp_path = WATCHLIST_DATA_FILE + ".tmp"
+                    with open(temp_path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                    os.replace(temp_path, WATCHLIST_DATA_FILE)
+            except Exception as e:
+                log.debug(f"[tradeville] Error updating watchlist data file: {e}")
+
+
     def _resubscribe(self):
         if self.active_tickers:
             syms_str = ",".join(self.active_tickers)
@@ -301,4 +464,3 @@ class TradevilleStreamer(threading.Thread):
         self.running = False
         self.authenticated = False
         self.force_reconnect()
-        self.worker_pool.shutdown(wait=False)
