@@ -409,26 +409,38 @@ function init() {
 
 function render() {
   var comp = CD.companies[SIMBOL];
-  if (!comp) { showError('Simbolul "' + SIMBOL + '" nu a fost gasit in baza de date.'); return; }
+  if (!comp) {
+    // Fallback: Fetch company directly from server API if not found in static company_data.json
+    fetch('/company?symbol=' + SIMBOL)
+      .then(function(r) { return r.json(); })
+      .then(function(liveComp) {
+        if (liveComp && !liveComp.error) {
+          CD.companies[SIMBOL] = liveComp;
+          renderProfile(liveComp);
+        } else {
+          showError('Simbolul "' + SIMBOL + '" nu a fost găsit în baza de date.');
+        }
+      })
+      .catch(function(err) {
+        showError('Eroare la încărcarea datelor: ' + err);
+      });
+    return;
+  }
+  renderProfile(comp);
+}
+function renderProfile(comp) {
   showContent();
-
   // Header info
   document.getElementById('ch-sym').textContent = SIMBOL;
   document.getElementById('ch-name').textContent = comp.nume || '';
-
   var tags = [];
   if (comp.metrics && comp.metrics.sector) tags.push('<span class="tag">' + comp.metrics.sector + '</span>');
   if (comp.metrics && comp.metrics.industry) tags.push('<span class="tag g">' + comp.metrics.industry + '</span>');
   document.getElementById('ch-tags').innerHTML = tags.join('');
-
   renderPrice(comp);
   renderMetrics(comp.metrics || {});
-
-  // No summary text — it just repeats the company name
-
   var q = encodeURIComponent((comp.nume || SIMBOL) + ' BVB');
   document.getElementById('ch-news').href = 'https://news.google.com/search?q=' + q + '&hl=ro';
-
   renderPriceChart();
   renderFinancialCharts(comp);
   renderCalendar(comp);
