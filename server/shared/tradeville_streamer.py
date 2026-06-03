@@ -425,10 +425,22 @@ class TradevilleStreamer(threading.Thread):
                 log.debug(f"[tradeville] Error updating portfolio file: {e}")
         if os.path.exists(WATCHLIST_DATA_FILE):
             try:
+                from shared.config import WATCHLIST_FILE
+                is_watchlist = False
+                if os.path.exists(WATCHLIST_FILE):
+                    try:
+                        with open(WATCHLIST_FILE, "r", encoding="utf-8") as wf:
+                            wl_data = json.load(wf)
+                        if symbol in wl_data.get("simbols", []):
+                            is_watchlist = True
+                    except Exception:
+                        pass
                 with open(WATCHLIST_DATA_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                prices_dict = data.get("prices", {})
-                if symbol in prices_dict:
+                prices_dict = data.setdefault("prices", {})
+                if symbol in prices_dict or is_watchlist:
+                    if symbol not in prices_dict:
+                        prices_dict[symbol] = {}
                     prices_dict[symbol]["price"] = price
                     if ref_price:
                         prices_dict[symbol]["changePct"] = round((price - ref_price) / ref_price, 4)

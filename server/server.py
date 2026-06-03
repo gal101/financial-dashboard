@@ -274,7 +274,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
-                    prices_dict = data.get("prices", {})
+                    prices_dict = data.setdefault("prices", {})
+                    # Ensure newly added watchlist symbols are initialized in prices_dict
+                    from shared.config import WATCHLIST_FILE
+                    if os.path.exists(WATCHLIST_FILE):
+                        try:
+                            with open(WATCHLIST_FILE, "r", encoding="utf-8") as wf:
+                                wl_data = json.load(wf)
+                            for sym in wl_data.get("simbols", []):
+                                if sym and sym not in prices_dict:
+                                    prices_dict[sym] = {}
+                        except Exception:
+                            pass
                     for sym, p_val in prices_dict.items():
                         if sym in streamer.price_cache:
                             tick = streamer.price_cache[sym]
@@ -516,13 +527,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             threading.Thread(target=run_sync, daemon=True).start()
             self._send_json({"success": True, "message": "Portfolio sync triggered in background"})
         elif path == "/api/monitor/sync-history":
+            symbol = body.get("symbol")
             def run_history():
                 try:
-                    subprocess.run([sys.executable, os.path.join(BASE_DIR, "company_fetcher.py")])
+                    args = [sys.executable, os.path.join(BASE_DIR, "company_fetcher.py")]
+                    if symbol:
+                        args.append(symbol)
+                    subprocess.run(args)
                 except Exception as e:
                     log.error(f"[monitor] Failed to run company_fetcher.py: {e}")
             threading.Thread(target=run_history, daemon=True).start()
-            self._send_json({"success": True, "message": "History sync triggered in background"})
+            self._send_json({"success": True, "message": f"History sync triggered for {symbol or 'all'} in background"})
         elif path == "/api/monitor/reset-subscriptions":
             if streamer:
                 streamer._resubscribe()
@@ -764,6 +779,8 @@ def main():
     init_db() # Migrate schema if needed
     from shared.tradeville_streamer import TradevilleStreamer
     streamer = TradevilleStreamer()
+    import shared.config as config
+    config.streamer = streamer
     streamer.on_push_callbacks.append(lambda tick: sse_manager.broadcast("price", tick))
     streamer.start()
     
