@@ -30,7 +30,7 @@
   <div class="kpis">
     <div class="kpi"><div class="kpi-label">Valoare portofoliu</div><div class="kpi-val" id="kv">-</div><div class="kpi-sub" id="kvr">- RON</div></div>
     <div class="kpi"><div class="kpi-label">Total investit</div><div class="kpi-val neu" id="ki">-</div><div class="kpi-sub">RON</div><div class="kpi-sub sub" id="kit"></div></div>
-    <div class="kpi"><div class="kpi-label">Profit / Pierdere</div><div class="kpi-val" id="kp">-</div><div class="kpi-sub" id="kpp">-</div></div>
+    <div class="kpi"><div class="kpi-label">Profit / Pierdere</div><div class="kpi-val" id="kp">-</div><div class="kpi-sub" id="kpp">-</div><div id="kpes" style="margin-top:4px; font-size:0.7rem; color:var(--dim)">Net est: -</div></div>
     <div class="kpi"><div class="kpi-label">Pozitii deschise</div><div class="kpi-val neu" id="kn">-</div><div class="kpi-sub">actiuni</div></div>
     <div class="kpi"><div class="kpi-label">Dividend anual est.</div><div class="kpi-val neu" id="kd">-</div><div class="kpi-sub">RON</div></div>
     <div class="kpi"><div class="kpi-label">P/L Real (incl. realizat)</div><div class="kpi-val" id="krp">-</div><div class="kpi-sub">profit real</div><div class="kpi-sub sub" id="krpr"></div></div>
@@ -244,6 +244,10 @@ function ra(){
   document.getElementById('kp').className='kpi-val '+pnl(pnlv);
   document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
   document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
+  var comm = total * 0.0065;
+  var netPnl = pnlv - comm;
+  var netPct = invested ? netPnl / invested * 100 : 0;
+  document.getElementById('kpes').textContent = 'Net est: ' + (netPnl >= 0 ? '+' : '') + fmt(netPnl) + ' RON (' + (netPct >= 0 ? '+' : '') + fmt(netPct) + '%)';
   document.getElementById('kn').textContent=STOCKS.length;
   // Dividend income estimate
   var divTotal=0;
@@ -779,6 +783,10 @@ function recalculateKPIs() {
   document.getElementById('kp').className='kpi-val '+pnl(pnlv);
   document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
   document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
+  var comm = total * 0.0065;
+  var netPnl = pnlv - comm;
+  var netPct = invested ? netPnl / invested * 100 : 0;
+  document.getElementById('kpes').textContent = 'Net est: ' + (netPnl >= 0 ? '+' : '') + fmt(netPnl) + ' RON (' + (netPct >= 0 ? '+' : '') + fmt(netPct) + '%)';
   var rpnl=0;
   if(DATA.realized_pnl&&DATA.realized_pnl.total_realized_loss_RON){
     rpnl=DATA.realized_pnl.total_realized_loss_RON;
