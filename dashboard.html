@@ -78,6 +78,7 @@ var STOCKS=[];
 var TURBO=[];
 var prices={};
 var ac,pc,tc,sc;
+var EST_SALE_COMMISSION_RATE = 0.00474; // Calibrat pentru comisionul tau de vanzare Tradeville (~0.474% efectiv)
 
 // === SORT ===
 var sortStocks={col:null,dir:null},sortTurbo={col:null,dir:null};
@@ -244,7 +245,7 @@ function ra(){
   document.getElementById('kp').className='kpi-val '+pnl(pnlv);
   document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
   document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
-  var comm = total * 0.0065;
+  var comm = total * EST_SALE_COMMISSION_RATE;
   var netPnl = pnlv - comm;
   var netPct = invested ? netPnl / invested * 100 : 0;
   document.getElementById('kpes').textContent = 'Net est: ' + (netPnl >= 0 ? '+' : '') + fmt(netPnl) + ' RON (' + (netPct >= 0 ? '+' : '') + fmt(netPct) + '%)';
@@ -783,7 +784,7 @@ function recalculateKPIs() {
   document.getElementById('kp').className='kpi-val '+pnl(pnlv);
   document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
   document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
-  var comm = total * 0.0065;
+  var comm = total * EST_SALE_COMMISSION_RATE;
   var netPnl = pnlv - comm;
   var netPct = invested ? netPnl / invested * 100 : 0;
   document.getElementById('kpes').textContent = 'Net est: ' + (netPnl >= 0 ? '+' : '') + fmt(netPnl) + ' RON (' + (netPct >= 0 ? '+' : '') + fmt(netPct) + '%)';
