@@ -157,6 +157,12 @@ def main():
     calculate_all()
     print("\nMetrics updated.")
 
+    # Regenerate company_data.json with newly fetched data
+    from db import export_to_json
+    print("Regenerating company_data.json...")
+    export_to_json()
+    print("Done.")
+
 if __name__ == "__main__":
     import time
     start_time = time.time()
