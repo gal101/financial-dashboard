@@ -73,17 +73,27 @@ def handle_add_to_watchlist(body: dict) -> dict:
         json.dump(wl, f, ensure_ascii=False, indent=2)
 
     # Add to active websocket subscriptions and subscribe
+    streamer_active = False
     try:
-        import server
-        if server.streamer:
+        import server.server as server
+        if server.streamer and server.streamer.authenticated:
             server.streamer.active_tickers.add(symbol)
             server.streamer._resubscribe()
             log.info(f"[watchlist] Added {symbol} to active websocket subscriptions")
+            import threading
+            threading.Thread(
+                target=server.streamer._fetch_symbol_details,
+                args=([symbol],),
+                daemon=True
+            ).start()
+            streamer_active = True
     except Exception as e:
         log.warning(f"[watchlist] Could not update active subscriptions for {symbol}: {e}")
-    # Also fetch prices from Yahoo
-    log.info(f"[price] {symbol} — running price fetch...")
-    _fetch_price_for(symbol)
+    if not streamer_active:
+        log.info(f"[price] {symbol} — running offline price fetch fallback...")
+        _fetch_price_for(symbol)
+    else:
+        log.info(f"[price] {symbol} — live price fetch triggered via WebSocket")
 
     # Check if company data is sparse — trigger scraping
     scraping_triggered = False
