@@ -6,6 +6,37 @@
 <title>Portofoliu BVB - Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="style.css">
+<style>
+  .sm-item {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg);
+    margin-bottom: 6px;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .sm-item:hover {
+    background: var(--card);
+    border-color: var(--accent);
+  }
+  .sm-sym {
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .sm-name {
+    font-size: 0.8rem;
+    color: var(--dim);
+    text-align: right;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
 </head>
 <body>
 
@@ -52,8 +83,7 @@
         <div class="tbl-head">
           <h2 id="title-watchlist">&#128065; Watchlist <span style="font-weight:400;font-size:.78rem;color:var(--dim);margin-left:8px">(simboluri urmărite)</span></h2>
           <div style="display:flex;gap:8px">
-            <input type="text" id="wl-input" class="srch" style="width:140px" placeholder="Simbol (ex: H2O)" onkeydown="if(event.key==='Enter')wlAdd()">
-            <button class="btn" onclick="wlAdd()">+ Adaugă</button>
+            <button class="btn" onclick="openSearchModal()">+ Adaugă Simbol</button>
           </div>
         </div>
         <table><thead><tr><th>Simbol</th><th>Preț</th><th>Var%</th><th></th></tr></thead><tbody id="wl-tbody"></tbody></table>
@@ -710,15 +740,13 @@ function wlSave() {
   console.log('Watchlist saved via server');
 }
 
-function wlAdd() {
-  var input = document.getElementById('wl-input');
-  var s = input.value.trim().toUpperCase();
+function wlAdd(s) {
   if (!s) return;
+  s = s.trim().toUpperCase();
   if (WATCHLIST.indexOf(s) >= 0) {
-    alert('Simbolul ' + s + ' este deja in watchlist.');
+    alert('Simbolul ' + s + ' este deja în watchlist.');
     return;
   }
-  // Add via server (persists to disk)
   fetch(SVR + '/watchlist', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -728,17 +756,80 @@ function wlAdd() {
   .then(function(result) {
     if (result.success) {
       WATCHLIST = result.watchlist.simbols || [];
-      input.value = '';
       wlRender();
-      // If scraping was triggered, show notification
-      if (result.scraping_triggered) {
-        console.log('Scraping triggered for ' + s + ' - data will appear soon');
-      }
+      // Dynamic trigger of history fetching for the new symbol!
+      fetch(SVR + '/api/monitor/sync-history', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({symbol: s})
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        console.log('History sync triggered for ' + s + ':', res.message);
+      })
+      .catch(function(err) {
+        console.warn('Could not sync history for ' + s + ':', err);
+      });
     } else {
-      alert('Eroare: ' + (result.error || 'necunoscuta'));
+      alert('Eroare: ' + (result.error || 'necunoscută'));
     }
   })
-  .catch(function() { alert('Nu se poate conecta la server.'); });
+  .catch(function(err) {
+    alert('Eroare rețea: ' + err);
+  });
+}
+function openSearchModal() {
+  document.getElementById('search-modal').style.display = 'flex';
+  var input = document.getElementById('sm-input');
+  input.value = '';
+  input.focus();
+  document.getElementById('sm-results').innerHTML = '<div style="color:var(--dim); font-size:0.85rem; text-align:center; padding:12px">Scrieți interogarea și apăsați Caută.</div>';
+}
+function closeSearchModal() {
+  document.getElementById('search-modal').style.display = 'none';
+}
+function performSymbolSearch() {
+  var query = document.getElementById('sm-input').value.trim();
+  if (!query) return;
+  var resultsContainer = document.getElementById('sm-results');
+  resultsContainer.innerHTML = '<div style="text-align:center; padding:12px"><div class="spin" style="margin:0 auto 8px; width:20px; height:20px"></div><span style="color:var(--dim); font-size:0.85rem">Se caută...</span></div>';
+  fetch(SVR + '/api/tradeville/request', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      cmd: "SearchSymbol",
+      prm: {
+        search: query
+      }
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res && res.data && res.data.Symbol && res.data.Symbol.length > 0) {
+      var symbols = res.data.Symbol;
+      var names = res.data.Name || [];
+      var html = '';
+      for (var i = 0; i < symbols.length; i++) {
+        var sym = symbols[i];
+        var name = names[i] || 'Nume indisponibil';
+        var safeName = name.replace(/'/g, "\\'");
+        html += '<div class="sm-item" onclick="selectSymbol(\'' + sym + '\')">' +
+          '<span class="sm-sym">' + sym + '</span>' +
+          '<span class="sm-name" title="' + name + '">' + name + '</span>' +
+          '</div>';
+      }
+      resultsContainer.innerHTML = html;
+    } else {
+      resultsContainer.innerHTML = '<div style="color:var(--red); font-size:0.85rem; text-align:center; padding:12px">Niciun simbol găsit.</div>';
+    }
+  })
+  .catch(function(err) {
+    resultsContainer.innerHTML = '<div style="color:var(--red); font-size:0.85rem; text-align:center; padding:12px">Eroare căutare: ' + err + '</div>';
+  });
+}
+function selectSymbol(sym) {
+  closeSearchModal();
+  wlAdd(sym);
 }
 
 function wlDelete(simbol) {
@@ -920,5 +1011,19 @@ function highlightPrice(sym, direction) {
   setInterval(ums,60000);
 })();
 </script>
+<!-- Search Overlay Modal -->
+<div id="search-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center" onclick="if(event.target===this)closeSearchModal()">
+  <div style="background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px; width:450px; display:flex; flex-direction:column; gap:16px; position:relative">
+    <button onclick="closeSearchModal()" style="position:absolute; top:12px; right:12px; background:none; border:none; color:var(--dim); font-size:1.2rem; cursor:pointer">&#10005;</button>
+    <h3 style="margin:0; font-size:1.1rem; color:var(--text)">Căutare Simbol BVB</h3>
+    <div style="display:flex; gap:8px">
+      <input type="text" id="sm-input" class="srch" style="flex:1" placeholder="Scrie simbol sau companie (ex: electric)..." onkeydown="if(event.key==='Enter')performSymbolSearch()">
+      <button class="btn" onclick="performSymbolSearch()">Caută</button>
+    </div>
+    <div id="sm-results" style="max-height:250px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-top:8px">
+      <div style="color:var(--dim); font-size:0.85rem; text-align:center; padding:12px">Scrieți interogarea și apăsați Caută.</div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
