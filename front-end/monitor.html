@@ -100,7 +100,7 @@
         <div class="ctrl-title">Portofoliu</div>
         <div style="font-size:.8rem;color:var(--dim);margin-top:4px">Sincronizează deținerile și prețurile medii direct din Tradeville.</div>
       </div>
-      <button class="btn" onclick="triggerAction('/api/monitor/sync-portfolio')">&#128260; Sincronizează</button>
+      <button class="btn" onclick="triggerAction('./api/monitor/sync-portfolio')">&#128260; Sincronizează</button>
     </div>
     
     <div class="ctrl-card">
@@ -108,7 +108,7 @@
         <div class="ctrl-title">Istoric Cotații</div>
         <div style="font-size:.8rem;color:var(--dim);margin-top:4px">Rulează update-ul asincron incremental pentru istoricul companiilor.</div>
       </div>
-      <button class="btn" onclick="triggerAction('/api/monitor/sync-history')">&#128200; Actualizează Istoric</button>
+      <button class="btn" onclick="triggerAction('./api/monitor/sync-history')">&#128200; Actualizează Istoric</button>
     </div>
     
     <div class="ctrl-card">
@@ -116,7 +116,7 @@
         <div class="ctrl-title">Conexiune Socket</div>
         <div style="font-size:.8rem;color:var(--dim);margin-top:4px">Forțează reconectarea WebSocket-ului către API-ul Tradeville.</div>
       </div>
-      <button class="btn" onclick="triggerAction('/api/monitor/reconnect')">&#128268; Reconectează</button>
+      <button class="btn" onclick="triggerAction('./api/monitor/reconnect')">&#128268; Reconectează</button>
     </div>
     
     <div class="ctrl-card">
@@ -124,7 +124,7 @@
         <div class="ctrl-title">Abonamente</div>
         <div style="font-size:.8rem;color:var(--dim);margin-top:4px">Re-abonează socket-ul la fluxul live pentru companiile active.</div>
       </div>
-      <button class="btn" onclick="triggerAction('/api/monitor/reset-subscriptions')">&#128257; Resetează Abonări</button>
+      <button class="btn" onclick="triggerAction('./api/monitor/reset-subscriptions')">&#128257; Resetează Abonări</button>
     </div>
 
     <div class="ctrl-card" style="background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.15)">
@@ -229,7 +229,7 @@
   function restartServer() {
     if (!confirm('Ești sigur că vrei să repornești serverul? Dashboard-ul va fi inaccesibil ~3 secunde.')) return;
     logToTerminal('>> Trimitere comanda RESTART catre server...');
-    fetch('/api/monitor/restart', { method: 'POST' })
+    fetch('./api/monitor/restart', { method: 'POST' })
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (res.success) {
@@ -239,7 +239,7 @@
           var attempts = 0;
           var check = setInterval(function() {
             attempts++;
-            fetch('/health', { method: 'GET' })
+            fetch('./health', { method: 'GET' })
               .then(function() {
                 clearInterval(check);
                 logToTerminal('<< Serverul a revenit online! Refresh...');
@@ -260,7 +260,7 @@
         var attempts = 0;
         var check = setInterval(function() {
           attempts++;
-          fetch('/health', { method: 'GET' })
+          fetch('./health', { method: 'GET' })
             .then(function() {
               clearInterval(check);
               logToTerminal('<< Serverul a revenit online! Refresh...');
@@ -293,7 +293,7 @@
   }
 
   // Connect to SSE event stream
-  var es = new EventSource('/api/monitor/events');
+  var es = new EventSource('./api/monitor/events');
   
   es.addEventListener('log', function(e) {
     try {

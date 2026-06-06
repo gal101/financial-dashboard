@@ -154,6 +154,39 @@ CREATE TABLE IF NOT EXISTS user_transactions (
 );
 """
 
+USER_SCHEMA = """
+CREATE TABLE IF NOT EXISTS portfolio_holdings (
+    symbol TEXT PRIMARY KEY,
+    quantity REAL NOT NULL,
+    avg_price REAL NOT NULL,
+    tip TEXT DEFAULT 'actiuni',
+    nume TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS user_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    op_type TEXT NOT NULL,
+    symbol TEXT,
+    quantity REAL,
+    price REAL,
+    commission REAL,
+    amount REAL,
+    profit REAL,
+    obs TEXT
+);
+"""
+
+
+def init_user_db(conn: sqlite3.Connection = None) -> sqlite3.Connection:
+    """Initialize user database schema. Creates tables if they don't exist."""
+    own_conn = conn is None
+    if own_conn:
+        conn = get_user_db()
+    conn.executescript(USER_SCHEMA)
+    return conn
+
 
 def init_db(conn: sqlite3.Connection = None) -> sqlite3.Connection:
     """Initialize database schema. Creates tables if they don't exist."""

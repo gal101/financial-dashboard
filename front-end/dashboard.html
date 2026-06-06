@@ -124,7 +124,6 @@
 <script>
 // === PORTFOLIO DATA ===
 var DATA=null;
-var SVR=window.location.protocol+'//'+window.location.hostname+':8089';
 
 var STOCKS=[];
 var TURBO=[];
@@ -228,7 +227,7 @@ function ys(s){if(s.indexOf('EBTLV')===0)return null;return s+'.RO'}
 // Refresh prices via our Python server (no CORS issues)
 function rp(){
   var btn=document.getElementById('br');if(btn){btn.disabled=true;btn.textContent='...'}
-  fetch(SVR+'/refresh',{method:'POST'})
+  fetch('./refresh',{method:'POST'})
     .then(function(r){return r.json()})
     .then(function(result){
       if(result.success && result.data){
@@ -768,7 +767,7 @@ function wlAdd(s) {
     alert('Simbolul ' + s + ' este deja în watchlist.');
     return;
   }
-  fetch(SVR + '/watchlist', {
+  fetch('./watchlist', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({symbol: s})
@@ -779,7 +778,7 @@ function wlAdd(s) {
       WATCHLIST = result.watchlist.simbols || [];
       wlRender();
       // Dynamic trigger of history fetching for the new symbol!
-      fetch(SVR + '/api/monitor/sync-history', {
+      fetch('./api/monitor/sync-history', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({symbol: s})
@@ -814,7 +813,7 @@ function performSymbolSearch() {
   if (!query) return;
   var resultsContainer = document.getElementById('sm-results');
   resultsContainer.innerHTML = '<div style="text-align:center; padding:12px"><div class="spin" style="margin:0 auto 8px; width:20px; height:20px"></div><span style="color:var(--dim); font-size:0.85rem">Se caută...</span></div>';
-  fetch(SVR + '/api/tradeville/request', {
+  fetch('./api/tradeville/request', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
@@ -854,7 +853,7 @@ function selectSymbol(sym) {
 }
 
 function wlDelete(simbol) {
-  fetch(SVR + '/watchlist?symbol=' + encodeURIComponent(simbol), {method: 'DELETE'})
+  fetch('./watchlist?symbol=' + encodeURIComponent(simbol), {method: 'DELETE'})
     .then(function(r) { return r.json(); })
     .then(function(result) {
       if (result.success) {
@@ -979,7 +978,7 @@ function highlightPrice(sym, direction) {
 
 // === BOOT ===
 (function(){
-  fetch('/api/portfolio?_=' + Date.now())
+  fetch('./api/portfolio?_=' + Date.now())
     .then(function(r){return r.json()})
     .then(function(data){
       DATA=data;
@@ -1000,7 +999,7 @@ function highlightPrice(sym, direction) {
     .then(function(data){CD=data;initSectorChart();ra()})
     .catch(function(){console.log('company_data.json not available')});
   // Load transactions
-  fetch('/api/portfolio/transactions?_=' + Date.now())
+  fetch('./api/portfolio/transactions?_=' + Date.now())
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var tbody = document.getElementById('tx-tbody');
@@ -1029,7 +1028,7 @@ function highlightPrice(sym, direction) {
   // Load watchlist
   wlLoad();
   // Live price streaming via SSE
-  var es = new EventSource('/api/monitor/events');
+  var es = new EventSource('./api/monitor/events');
   es.addEventListener('price', function(e) {
     try {
       var tick = JSON.parse(e.data);

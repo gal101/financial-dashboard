@@ -400,9 +400,9 @@ class TradevilleStreamer(threading.Thread):
     def _update_disk_cache(self, symbol, price, ref_price):
         if not price:
             return
+        from shared.config import WATCHLIST_DATA_FILE, WATCHLIST_FILE
         if os.path.exists(WATCHLIST_DATA_FILE):
             try:
-                from shared.config import WATCHLIST_FILE
                 is_watchlist = False
                 if os.path.exists(WATCHLIST_FILE):
                     try:

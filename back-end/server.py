@@ -119,7 +119,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)-5s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
-        logging.FileHandler(LOG_FILE),
+        logging.FileHandler(LOG_FILE, mode="w"),
         logging.StreamHandler(sys.stdout),
     ],
 )
@@ -741,12 +741,22 @@ def main():
         try:
             with open(pid_file, "r") as f:
                 old_pid = int(f.read().strip())
-            # Check if PID is still alive
-            import ctypes
-            kernel32 = ctypes.windll.kernel32
-            handle = kernel32.OpenProcess(0x0400, False, old_pid)  # PROCESS_QUERY_INFORMATION
-            if handle:
-                kernel32.CloseHandle(handle)
+            # Check if PID is still alive (cross-platform)
+            import platform
+            try:
+                if platform.system() == "Windows":
+                    import ctypes
+                    kernel32 = ctypes.windll.kernel32
+                    handle = kernel32.OpenProcess(0x0400, False, old_pid)
+                    alive = bool(handle)
+                    if handle:
+                        kernel32.CloseHandle(handle)
+                else:
+                    os.kill(old_pid, 0)  # signal 0 just checks existence
+                    alive = True
+            except (OSError, ProcessLookupError):
+                alive = False
+            if alive:
                 # Check if port is actually in use by trying to connect
                 import socket
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -763,8 +773,9 @@ def main():
         f.write(str(os.getpid()))
 
     global streamer
-    from db import init_db
+    from db import init_db, init_user_db
     init_db() # Migrate schema if needed
+    init_user_db() # Initialize user database schema
     from shared.tradeville_streamer import TradevilleStreamer
     streamer = TradevilleStreamer()
     import shared.config as config

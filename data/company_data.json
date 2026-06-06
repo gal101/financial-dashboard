@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-06-05T19:18:21.642344+00:00",
+  "updated_at": "2026-06-06T19:15:39.972657+00:00",
   "companies": {
     "BENTO": {
       "simbol": "BENTO",
@@ -9425,7 +9425,7 @@
           "event": "Raport T3 2026"
         }
       ],
-      "updated_at": "2026-06-05T19:18:21.646353+00:00",
+      "updated_at": "2026-06-06T19:15:39.975178+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 88100000.0,
@@ -9445,7 +9445,7 @@
         "dividend": 1.35,
         "divPrice": 73.0,
         "refPrice": 49.35,
-        "trailingPE": -25.85,
+        "trailingPE": -26.33,
         "eps": -1.885856,
         "profitMargins": -0.0477,
         "dividendYield": 2.74
@@ -20824,7 +20824,7 @@
           "event": "Rezultate financiare trimestrul III 2026"
         }
       ],
-      "updated_at": "2026-06-05T19:18:21.652354+00:00"
+      "updated_at": "2026-06-06T19:15:39.977986+00:00"
     },
     "DN": {
       "simbol": "DN",
@@ -20838,7 +20838,7 @@
         "earnings": 47851729.0,
         "earnDate": "2026-03-31",
         "refPrice": 3.06,
-        "forwardPE": 12.73
+        "forwardPE": 13.06
       },
       "quarterly": [],
       "annual": [],
@@ -30536,7 +30536,7 @@
           "event": "Teleconferinta – prezentare rezultate financiare trimestrul III"
         }
       ],
-      "updated_at": "2026-06-05T19:18:21.657361+00:00",
+      "updated_at": "2026-06-06T19:15:39.980400+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 200000000.0,
@@ -36282,7 +36282,7 @@
         }
       ],
       "calendar": [],
-      "updated_at": "2026-06-05T19:18:21.661366+00:00"
+      "updated_at": "2026-06-06T19:15:39.981862+00:00"
     },
     "H2O": {
       "simbol": "H2O",
@@ -36296,8 +36296,8 @@
         "dividend": 7.348365,
         "divPrice": 177.0,
         "refPrice": 171.0,
-        "trailingPE": 18.81,
-        "forwardPE": 21.39,
+        "trailingPE": 19.0,
+        "forwardPE": 21.61,
         "eps": 9.092878,
         "dividendYield": 4.3
       },
@@ -42951,7 +42951,7 @@
           "event": "Teleconferinta – prezentare rezultate financiare trimestrul III"
         }
       ],
-      "updated_at": "2026-06-05T19:18:21.665374+00:00",
+      "updated_at": "2026-06-06T19:15:39.984545+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 11939687000.0,
@@ -47603,7 +47603,7 @@
           "event": "Analysts and Investors Call (Q3 2026 Results)"
         }
       ],
-      "updated_at": "2026-06-05T19:18:21.668373+00:00"
+      "updated_at": "2026-06-06T19:15:39.986762+00:00"
     },
     "SAFE": {
       "simbol": "SAFE",
@@ -47617,8 +47617,8 @@
         "earnings": 12342649.0,
         "earnDate": "2026-03-31",
         "refPrice": 0.92,
-        "trailingPE": 12.0,
-        "forwardPE": 9.34,
+        "trailingPE": 12.21,
+        "forwardPE": 9.5,
         "eps": 0.075853,
         "profitMargins": 0.3222
       },
@@ -58986,7 +58986,7 @@
           "event": "Rezultate financiare trimestrul III 2026"
         }
       ],
-      "updated_at": "2026-06-05T19:18:21.672375+00:00",
+      "updated_at": "2026-06-06T19:15:39.989549+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 69965000.0,
@@ -59004,8 +59004,8 @@
         "earnings": 561538.0,
         "earnDate": "2026-03-31",
         "refPrice": 40.2,
-        "trailingPE": 54.94,
-        "forwardPE": 9.89,
+        "trailingPE": 54.67,
+        "forwardPE": 9.84,
         "eps": 0.737181,
         "profitMargins": 0.008
       },
@@ -70174,7 +70174,7 @@
           "event": "Publicare rezultate T1 2026"
         }
       ],
-      "updated_at": "2026-06-05T19:18:21.676888+00:00",
+      "updated_at": "2026-06-06T19:15:39.992324+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 907233124.0,
@@ -70196,8 +70196,8 @@
         "dividend": 0.0578,
         "divPrice": 1.057,
         "refPrice": 1.044,
-        "trailingPE": 21.38,
-        "forwardPE": 22.71,
+        "trailingPE": 21.42,
+        "forwardPE": 22.75,
         "eps": 0.04841,
         "profitMargins": 0.0811,
         "dividendYield": 5.54
@@ -81520,7 +81520,7 @@
           "event": "Rezultate financiare trimestrul III 2026"
         }
       ],
-      "updated_at": "2026-06-05T19:18:21.682891+00:00",
+      "updated_at": "2026-06-06T19:15:39.995440+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 30891000000.0,
@@ -81542,8 +81542,8 @@
         "dividend": 1.284024,
         "divPrice": 38.82,
         "refPrice": 37.7,
-        "trailingPE": 8.39,
-        "forwardPE": 9.57,
+        "trailingPE": 8.64,
+        "forwardPE": 9.85,
         "eps": 4.49544,
         "profitMargins": 0.4044,
         "dividendYield": 3.41
@@ -92872,7 +92872,7 @@
           "event": "Teleconferinta – prezentare rezultate financiare trimestrul III"
         }
       ],
-      "updated_at": "2026-06-05T19:18:21.690419+00:00",
+      "updated_at": "2026-06-06T19:15:39.998534+00:00",
       "bvc": {
         "year": 2026,
         "revenue": 10779000000.0,
@@ -104110,7 +104110,7 @@
         }
       ],
       "calendar": [],
-      "updated_at": "2026-06-05T19:18:21.696046+00:00"
+      "updated_at": "2026-06-06T19:15:40.001543+00:00"
     }
   }
 }

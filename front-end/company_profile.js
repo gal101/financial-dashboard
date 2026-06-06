@@ -406,7 +406,7 @@ function init() {
     .then(function(d) { CD = d; checkDone(); })
     .catch(function() { CD = { companies: {} }; checkDone(); });
 
-  fetch('/api/portfolio?_=' + Date.now())
+  fetch('./api/portfolio?_=' + Date.now())
     .then(function(r) { return r.json(); })
     .then(function(d) { PORTFOLIO = d; checkDone(); })
     .catch(function() { PORTFOLIO = null; checkDone(); });
@@ -416,7 +416,7 @@ function render() {
   var comp = CD.companies[SIMBOL];
   if (!comp) {
     // Fallback: Fetch company directly from server API if not found in static company_data.json
-    fetch('/company?symbol=' + SIMBOL)
+    fetch('./company?symbol=' + SIMBOL)
       .then(function(r) { return r.json(); })
       .then(function(liveComp) {
         if (liveComp && !liveComp.error) {

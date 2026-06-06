@@ -102,6 +102,20 @@ def load_watchlist():
         data = json.load(f)
     return data.get("simbols", [])
 
+def _classify_via_symbol(client, symbol):
+    """Check if a symbol is a structured product by looking at Leverage/Barrier."""
+    try:
+        res = client.send_request({'cmd': 'Symbol', 'prm': {'symbol': symbol}})
+        data = res.get('data', {})
+        if data:
+            lev = data.get('Leverage', [])
+            bar = data.get('Barrier', [])
+            if (lev and len(lev) > 0 and lev[0] is not None) or (bar and len(bar) > 0 and bar[0] is not None):
+                return 'struct'
+    except Exception:
+        pass
+    return 'actiuni'
+
 def save_holdings_to_db(holdings):
     conn = get_user_db()
     try:
@@ -189,7 +203,7 @@ def main():
                 nume = sym
                 for h in portfolio.get("holdings", []):
                     if h["simbol"] == sym:
-                        nume = h["nume"]
+                        nume = h.get("nume", sym)
                         break
                         
                 new_holdings.append({
@@ -207,6 +221,13 @@ def main():
                 })
             
             portfolio["holdings"] = new_holdings
+            # Classify structured products using Symbol command (PType is unreliable)
+            for h in new_holdings:
+                if h.get("tip", "actiuni") == "actiuni":
+                    real_tip = _classify_via_symbol(client, h["simbol"])
+                    if real_tip == "struct":
+                        print(f"  [classify] {h['simbol']}: PType said actiuni, but Leverage/Barrier detected -> struct")
+                        h["tip"] = "struct"
             portfolio["metadata"]["sursa"] = "Tradeville API Live Sync"
             portfolio["metadata"]["valuta"] = "RON"
             portfolio["metadata"]["total_investit_RON"] = round(sum(h["investitie_initiala_RON"] for h in new_holdings), 2)
@@ -245,7 +266,10 @@ def main():
                 p = prices[sym]
                 h["pret_actual_RON"] = p["price"]
                 h["variatie_pret_pct"] = p["change_pct"]
-                h["tip"] = "struct" if p.get("is_structured") else "actiuni"
+                new_tip = "struct" if p.get("is_structured") else "actiuni"
+                if h.get("tip") != new_tip:
+                    print(f"  [tip] {sym}: {h.get('tip')} -> {new_tip} (is_structured={p.get('is_structured')})")
+                h["tip"] = new_tip
                 h["valoare_evaluata_RON"] = round(h["actiuni"] * p["price"], 2)
                 h["profit_pierdere_RON"] = round(
                     h["valoare_evaluata_RON"] - h["investitie_initiala_RON"], 2
