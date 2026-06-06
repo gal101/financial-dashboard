@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portofoliu BVB - Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="style.css">
+<style>
+  .sm-item {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg);
+    margin-bottom: 6px;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .sm-item:hover {
+    background: var(--card);
+    border-color: var(--accent);
+  }
+  .sm-sym {
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .sm-name {
+    font-size: 0.8rem;
+    color: var(--dim);
+    text-align: right;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="load" id="ld" style="display:none">
+  <div style="text-align:center"><div class="spin" style="margin:0 auto 16px"></div>
+  <div style="color:var(--dim);font-size:.9rem">Se incarca...</div></div>
+</div>
+
+<div class="header">
+  <div><h1>&#128202; Portofoliu BVB</h1><div class="sub">Bursa de Valori Bucuresti - actualizat in timp real</div></div>
+  <div class="last-up">
+    <div style="margin-bottom:6px"><span id="ms" class="mkt c"><span class="dot r" id="md"></span><span id="mt">Se verifica...</span></span></div>
+    <div>Ultima act.: <strong id="lu">--</strong></div>
+    <div style="margin-top:6px; display:flex; gap:8px; justify-content:flex-end">
+      <button class="btn" id="br" onclick="rp()">&#128260; Actualizeaza</button>
+      <a href="monitor.html" class="btn" style="text-decoration:none">&#128187; Monitor</a>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-label">Valoare portofoliu</div><div class="kpi-val" id="kv">-</div></div>
+    <div class="kpi"><div class="kpi-label">Total investit</div><div class="kpi-val neu" id="ki">-</div><div class="kpi-sub sub" id="kit"></div></div>
+    <div class="kpi"><div class="kpi-label">Profit / Pierdere</div><div class="kpi-val" id="kp">-</div><div class="kpi-sub" id="kpp">-</div><div id="kpes" style="margin-top:4px; font-size:0.7rem; color:var(--dim)">Net est: -</div></div>
+    <div class="kpi"><div class="kpi-label">Dividend anual est.</div><div class="kpi-val neu" id="kd">-</div><div class="kpi-sub">RON</div></div>
+    <div class="kpi"><div class="kpi-label">P/L Real (incl. realizat)</div><div class="kpi-val" id="krp">-</div><div class="kpi-sub">profit real</div><div class="kpi-sub sub" id="krpr"></div></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="tbl">
+        <div class="tbl-head"><h2 id="title-stocks">&#127919; Actiuni</h2><input class="srch" type="text" placeholder="Filtrează..." id="si" oninput="ft()"/></div>
+        <table><thead><tr><th>Simbol <span class="si"></span></th><th>Companie <span class="si"></span></th><th>Act. <span class="si"></span></th><th>P.med <span class="si"></span></th><th>P.act <span class="si"></span></th><th>Var% <span class="si"></span></th><th>Valoare <span class="si"></span></th><th>P/L <span class="si"></span></th><th>P/L% <span class="si"></span></th><th>Pond <span class="si"></span></th></tr></thead><tbody id="sb"></tbody></table>
+      </div>
+      <div class="tbl" style="margin-top:24px">
+        <div class="tbl-head">
+          <h2 id="title-turbo">&#128200; Certificate Turbo / Structurate</h2>
+          <input class="srch" type="text" placeholder="Filtrează..." id="ti-search" oninput="ftTurbo()"/>
+        </div>
+        <table><thead><tr><th>Simbol <span class="si"></span></th><th>Descriere <span class="si"></span></th><th>Poz. <span class="si"></span></th><th>P.med <span class="si"></span></th><th>P.act <span class="si"></span></th><th>Valoare <span class="si"></span></th><th>P/L <span class="si"></span></th><th>P/L% <span class="si"></span></th></tr></thead><tbody id="tb"></tbody></table>
+      </div>
+      <div class="tbl" style="margin-top:24px">
+        <div class="tbl-head">
+          <h2 id="title-watchlist">&#128065; Watchlist <span style="font-weight:400;font-size:.78rem;color:var(--dim);margin-left:8px">(simboluri urmărite)</span></h2>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="openSearchModal()">+ Adaugă Simbol</button>
+          </div>
+        </div>
+        <table><thead><tr><th>Simbol</th><th>Preț</th><th>Var%</th><th></th></tr></thead><tbody id="wl-tbody"></tbody></table>
+      </div>
+      <div class="tbl" style="margin-top:24px">
+        <div class="tbl-head">
+          <h2 id="title-transactions">&#128181; Ultimele Tranzacții</h2>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Tip</th>
+              <th>Simbol</th>
+              <th style="text-align:right">Cantitate</th>
+              <th style="text-align:right">Preț</th>
+              <th style="text-align:right">Valoare</th>
+            </tr>
+          </thead>
+          <tbody id="tx-tbody">
+            <tr><td colspan="6" style="text-align:center;color:var(--dim);padding:16px">Se încarcă...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      </div>
+    <div class="charts">
+      <div class="ch"><h3>&#128202; Alocatie</h3><div class="ch-wrap"><canvas id="ac"></canvas></div></div>
+      <div class="ch"><h3>&#128176; P/L per pozitie</h3><div class="ch-wrap"><canvas id="pc"></canvas></div></div>
+      <div class="ch"><h3>&#127919; Distributie tip</h3><div class="ch-wrap" style="height:200px"><canvas id="tc"></canvas></div></div>
+      <div class="ch"><h3>&#127758; Alocare pe sectoare</h3><div class="ch-wrap" style="height:200px"><canvas id="sc-canvas"></canvas></div></div>
+    </div>
+  </div>
+</div>
+<div class="foot"><p>Portofoliu BVB - Yahoo Finance API - Server UTC</p><p>BVB: Luni-Vineri 10:00-18:30 EEST</p></div>
+
+
+
+<script>
+// === PORTFOLIO DATA ===
+var DATA=null;
+var SVR=window.location.protocol+'//'+window.location.hostname+':8089';
+
+var STOCKS=[];
+var TURBO=[];
+var prices={};
+var ac,pc,tc,sc;
+var EST_SALE_COMMISSION_RATE = 0.004535; // Calibrat pentru comisionul tau de vanzare Tradeville (~0.4535% efectiv)
+
+// === SORT ===
+var sortStocks={col:null,dir:null},sortTurbo={col:null,dir:null};
+var STOCKS_ORIG=[],TURBO_ORIG=[];
+
+function _skStocks(h,ci){
+  var p=prices[h.simbol];var cp=p?p.price:h.pret_actual_RON;
+  var val=h.actiuni*cp;var pl=val-h.investitie_initiala_RON;
+  var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
+  var total=totalVal();var pond=total?val/total*100:0;
+  var chg=p?p.chg:h.variatie_pret_pct;
+  switch(ci){
+    case 0:return(h.simbol||'').toLowerCase();
+    case 1:return(h.nume||'').toLowerCase();
+    case 2:return h.actiuni;
+    case 3:return h.pret_medie_achizitie_RON;
+    case 4:return cp;
+    case 5:return chg;
+    case 6:return val;
+    case 7:return pl;
+    case 8:return plp;
+    case 9:return pond;
+  }
+  return 0;
+}
+
+function _skTurbo(h,ci){
+  var p=prices[h.simbol];var cp=p?p.price:h.pret_actual_RON;
+  var val=h.actiuni*cp;var pl=val-h.investitie_initiala_RON;
+  var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
+  switch(ci){
+    case 0:return(h.simbol||'').toLowerCase();
+    case 1:return(h.nume||'').toLowerCase();
+    case 2:return h.actiuni;
+    case 3:return h.pret_medie_achizitie_RON;
+    case 4:return cp;
+    case 5:return val;
+    case 6:return pl;
+    case 7:return plp;
+  }
+  return 0;
+}
+
+function _doSort(tid){
+  var st=tid==='sb'?sortStocks:sortTurbo;
+  var arr=tid==='sb'?STOCKS:TURBO;
+  var orig=tid==='sb'?STOCKS_ORIG:TURBO_ORIG;
+  var keyFn=tid==='sb'?_skStocks:_skTurbo;
+  var maxCols=tid==='sb'?10:8;
+  if(!st||st.col===null||st.col>=maxCols){
+    if(orig&&orig.length)for(var i=0;i<orig.length;i++)arr[i]=orig[i];
+  }else{
+    arr.sort(function(a,b){
+      var va=keyFn(a,st.col),vb=keyFn(b,st.col);
+      if(va===null||va===undefined)va=0;
+      if(vb===null||vb===undefined)vb=0;
+      if(typeof va==='string'){va=va.toLowerCase();vb=(''+vb).toLowerCase();}
+      if(va<vb)return st.dir==='asc'?-1:1;
+      if(va>vb)return st.dir==='asc'?1:-1;
+      return 0;
+    });
+  }
+  var ths=document.getElementById(tid).closest('table').querySelectorAll('thead th');
+  ths.forEach(function(th,i){
+    var si=th.querySelector('.si');
+    if(si){
+      if(st&&st.col===i&&st.dir){si.textContent=st.dir==='asc'?' \u25B2':' \u25BC';si.className='si a';}
+      else{si.textContent='';si.className='si';}
+    }
+  });
+}
+function shortStr(s, len) { if(!s) return ''; return s.length > len ? s.substring(0, len) + '...' : s; }
+
+function _hdrClick(e){
+  var th=e.target.closest('th');if(!th)return;
+  var tbody=th.closest('table').querySelector('tbody');if(!tbody)return;
+  var tid=tbody.id;if(tid!=='sb'&&tid!=='tb')return;
+  var st=tid==='sb'?sortStocks:sortTurbo;
+  var ci=Array.prototype.indexOf.call(th.parentNode.children,th);
+  if(st.col===ci){if(!st.dir)st.dir='asc';else if(st.dir==='asc')st.dir='desc';else{st.col=null;st.dir=null;}}
+  else{st.col=ci;st.dir='asc';}
+  _doSort(tid);
+  if(tid==='sb')renderTable();else renderTurbo();
+}
+
+// === HELPERS ===
+function fmt(n,d){if(n===null||n===undefined||isNaN(n))return'-';return Number(n).toLocaleString('ro-RO',{minimumFractionDigits:d||2,maximumFractionDigits:d||2})}
+function pnl(c){return c>0?'pos':c<0?'neg':'neu'}
+function totalVal(){var a=0;DATA.holdings.forEach(function(h){a+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});return a}
+
+// === YAHOO FINANCE (via server proxy) ===
+var YB='https://query1.finance.yahoo.com/v8/finance/chart/';
+function ys(s){if(s.indexOf('EBTLV')===0)return null;return s+'.RO'}
+
+// Refresh prices via our Python server (no CORS issues)
+function rp(){
+  var btn=document.getElementById('br');if(btn){btn.disabled=true;btn.textContent='...'}
+  fetch(SVR+'/refresh',{method:'POST'})
+    .then(function(r){return r.json()})
+    .then(function(result){
+      if(result.success && result.data){
+        DATA=result.data;
+        STOCKS=DATA.holdings.filter(function(h){return h.tip==='actiuni'});
+        TURBO=DATA.holdings.filter(function(h){return h.tip!=='actiuni'});
+        STOCKS_ORIG=STOCKS.slice();TURBO_ORIG=TURBO.slice();
+        // Update prices from portfolio data
+        DATA.holdings.forEach(function(h){
+          prices[h.simbol]={price:h.pret_actual_RON,chg:h.variatie_pret_pct};
+        });
+        // Update watchlist prices if available
+        if(result.watchlist_data&&result.watchlist_data.prices){
+          Object.keys(result.watchlist_data.prices).forEach(function(s){
+            if(result.watchlist_data.prices[s])prices[s]=result.watchlist_data.prices[s];
+          });
+        }
+        ra();ul();wlRender();
+      }
+      if(btn){btn.disabled=false;btn.textContent='Actualizeaza'}
+    })
+    .catch(function(e){
+      console.log('Refresh failed:',e);
+      if(btn){btn.disabled=false;btn.textContent='Actualizeaza'}
+    });
+}
+
+function ul(){
+  var now=new Date();var eest=new Date(now.getTime()+2*3600000);
+  document.getElementById('lu').textContent=eest.toISOString().replace('T',' ').substring(0,19)+' EEST'
+}
+
+// BVB non-weekend holidays 2026 — from https://bvb.ro/TradingAndStatistics/TradingSessionSchedule
+var BVB_HOLIDAYS_2026 = [
+  "2026-01-01","2026-01-02","2026-01-06","2026-01-07",  // New Year, Epiphany, St John
+  "2026-04-10","2026-04-13",                              // Orthodox Good Friday, Easter Monday
+  "2026-05-01",                                            // Labor Day
+  "2026-06-01",                                            // Whit Monday (Rusalii)
+  "2026-11-30","2026-12-01",                              // St Andrew, National Day
+  "2026-12-25"                                             // Christmas
+];
+
+function ums(){
+  var n=new Date();
+  var y=n.getFullYear(),m=String(n.getMonth()+1).padStart(2,'0'),dt=String(n.getDate()).padStart(2,'0');
+  var today=y+'-'+m+'-'+dt;
+  var holiday=BVB_HOLIDAYS_2026.indexOf(today)>=0;
+  var h=n.getUTCHours();var mn=n.getUTCMinutes();var d=n.getUTCDay();
+  var wd=d>=1&&d<=5;
+  var op=wd&&!holiday&&h+mn/60>=7&&h+mn/60<15;
+  var b=document.getElementById('ms');var dot=document.getElementById('md');var t=document.getElementById('mt');
+  if(op){b.className='mkt o';dot.className='dot g';t.textContent='Piata deschisa'}
+  else{b.className='mkt c';dot.className='dot y';t.textContent=holiday?'Piata inchisa (sarbatoare)':'Piata inchisa'}
+}
+
+// === RENDER ===
+function ra(){
+  var all=STOCKS.concat(TURBO);
+  var invested=0,total=0;
+  all.forEach(function(h){invested+=h.investitie_initiala_RON;total+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
+  var pnlv=total-invested;
+  var pnlPct=invested?pnlv/invested*100:0;
+  document.getElementById('kv').textContent=fmt(total,2)+' RON';
+  document.getElementById('ki').textContent=fmt(invested)+' RON';
+  document.getElementById('kp').textContent=(pnlv>=0?'+':'')+fmt(pnlv)+' RON';
+  document.getElementById('kp').className='kpi-val '+pnl(pnlv);
+  document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
+  document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
+  var comm = total * EST_SALE_COMMISSION_RATE;
+  var netPnl = pnlv - comm;
+  var netPct = invested ? netPnl / invested * 100 : 0;
+  document.getElementById('kpes').textContent = 'Net est: ' + (netPnl >= 0 ? '+' : '') + fmt(netPnl) + ' RON (' + (netPct >= 0 ? '+' : '') + fmt(netPct) + '%)';
+  // Dividend income estimate
+  var divTotal=0;
+  if(CD&&CD.companies){
+    STOCKS.forEach(function(h){
+      var comp=CD.companies[h.simbol];
+      if(comp&&comp.metrics&&comp.metrics.dividendYield){
+        divTotal+=h.actiuni*comp.metrics.dividend;
+      }
+    });
+  }
+  document.getElementById('kd').textContent=fmt(divTotal)+' RON';
+  // Real P/L = unrealized + realized
+  var rpnl = DATA.metadata ? DATA.metadata.realized_pnl : 0;
+  var divs = DATA.metadata ? DATA.metadata.dividends : 0;
+  var realPnl = pnlv + rpnl + divs;
+  var totalBuzunar = invested + Math.abs(rpnl); 
+  var realPct = totalBuzunar ? realPnl / totalBuzunar * 100 : 0;
+  var rpel = document.getElementById('krp');
+  if(rpel){rpel.textContent=(realPnl>=0?'+':'')+fmt(realPnl)+' RON';rpel.className='kpi-val '+pnl(realPnl)}
+  var krprEl = document.getElementById('krpr');
+  if(krprEl){krprEl.textContent='return: '+(realPct>=0?'+':'')+fmt(realPct)+'%'}
+  var kitEl=document.getElementById('kit');
+  if(kitEl&&rpnl){kitEl.textContent='incl. pierdere/castig: '+fmt(totalBuzunar,2)+' RON'}
+  if(sortStocks.col!==null)_doSort('sb');
+  if(sortTurbo.col!==null)_doSort('tb');
+  var tsEl = document.getElementById('title-stocks');
+  if (tsEl) tsEl.innerHTML = '&#127919; Actiuni (' + STOCKS.length + ')';
+  var ttEl = document.getElementById('title-turbo');
+  if (ttEl) ttEl.innerHTML = '&#128200; Certificate Turbo / Structurate (' + TURBO.length + ')';
+
+  renderTable();renderTurbo();updateCharts();
+}
+
+function renderTable(){
+  var tbody=document.getElementById('sb');tbody.innerHTML='';
+  var total=totalVal();
+  STOCKS.forEach(function(h){
+    var p=prices[h.simbol];var cp=p?p.price:h.pret_actual_RON;
+    var chg=p?p.chg:h.variatie_pret_pct;
+    var val=h.actiuni*cp;var pl=val-h.investitie_initiala_RON;
+    var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
+    var pond=total?val/total*100:0;
+    var tr=document.createElement('tr');
+    tr.setAttribute('data-row-sym', h.simbol);
+    tr.setAttribute('onclick', "window.location.href='company.html?symbol="+h.simbol+"'");
+    tr.setAttribute('style', 'cursor:pointer;');
+    tr.innerHTML='<td><a href="company.html?symbol='+h.simbol+'" class="sym" style="text-decoration:none">'+h.simbol+'</a></td>'+
+    '<td><span class="nm" title="'+h.nume+'">'+shortStr(h.nume, 25)+'</span></td>'+
+    '<td>'+h.actiuni.toLocaleString('ro-RO')+'</td>'+
+    '<td>'+fmt(h.pret_medie_achizitie_RON,4)+'</td>'+
+    '<td><strong data-price-sym="'+h.simbol+'">'+fmt(cp,4)+'</strong></td>'+
+    '<td class="'+pnl(chg)+'" data-chg-sym="'+h.simbol+'">'+(chg>=0?'+':'')+fmt(chg)+'%</td>'+
+    '<td data-val-sym="'+h.simbol+'">'+fmt(val)+'</td>'+
+    '<td class="'+pnl(pl)+'" data-pl-sym="'+h.simbol+'"><strong>'+(pl>=0?'+':'')+fmt(pl)+'</strong></td>'+
+    '<td class="'+pnl(plp)+'" data-plp-sym="'+h.simbol+'">'+(plp>=0?'+':'')+fmt(plp)+'%</td>'+
+    '<td>'+fmt(pond,1)+'%</td>';
+    tbody.appendChild(tr)
+  })
+}
+
+function renderTurbo(){
+  var tbody=document.getElementById('tb');tbody.innerHTML='';
+  if(TURBO.length===0){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:16px">Niciun instrument structurat</td></tr>';return}
+  TURBO.forEach(function(h){
+    var p=prices[h.simbol];var cp=p?p.price:h.pret_actual_RON;
+    var val=h.actiuni*cp;var pl=val-h.investitie_initiala_RON;
+    var plp=h.investitie_initiala_RON?pl/h.investitie_initiala_RON*100:0;
+    var tr=document.createElement('tr');
+    tr.setAttribute('data-row-sym', h.simbol);
+    tr.setAttribute('onclick', "window.location.href='company.html?symbol="+h.simbol+"'");
+    tr.setAttribute('style', 'cursor:pointer;');
+    tr.innerHTML='<td><a href="company.html?symbol='+h.simbol+'" class="sym" style="text-decoration:none">'+h.simbol+'</a></td>'+
+    '<td><span class="nm" title="'+h.nume+'">'+shortStr(h.nume, 25)+'</span></td>'+
+    '<td>'+h.actiuni+'</td>'+
+    '<td>'+fmt(h.pret_medie_achizitie_RON,4)+'</td>'+
+    '<td><strong data-price-sym="'+h.simbol+'">'+fmt(cp,4)+'</strong></td>'+
+    '<td data-val-sym="'+h.simbol+'">'+fmt(val)+'</td>'+
+    '<td class="'+pnl(pl)+'" data-pl-sym="'+h.simbol+'">'+(pl>=0?'+':'')+fmt(pl)+'</td>'+
+    '<td class="'+pnl(plp)+'" data-plp-sym="'+h.simbol+'">'+(plp>=0?'+':'')+fmt(plp)+'%</td>';
+    tbody.appendChild(tr)
+  })
+}
+
+function ft(){var q=document.getElementById('si').value.toLowerCase();document.querySelectorAll('#sb tr').forEach(function(tr){tr.style.display=tr.textContent.toLowerCase().indexOf(q)>=0?'':'none'})}
+function ftTurbo(){var q=document.getElementById('ti-search').value.toLowerCase();document.querySelectorAll('#tb tr').forEach(function(tr){tr.style.display=tr.textContent.toLowerCase().indexOf(q)>=0?'':'none'})}
+
+// === CHARTS ===
+var COLORS=['#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#8b5cf6','#14b8a6'];
+
+function initCharts(){
+  var all=STOCKS.concat(TURBO);
+  ac=new Chart(document.getElementById('ac'),{type:'doughnut',data:{labels:all.map(function(h){return h.simbol}),datasets:[{data:all.map(function(h){return h.actiuni*h.pret_actual_RON}),backgroundColor:COLORS.slice(0,all.length),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#8b8fa3',font:{size:10},padding:10,usePointStyle:true}}},cutout:'60%'}});
+  var pnlData=all.map(function(h){return h.actiuni*h.pret_actual_RON-h.investitie_initiala_RON});
+  pc=new Chart(document.getElementById('pc'),{type:'bar',data:{labels:all.map(function(h){return h.simbol}),datasets:[{label:'P/L (RON)',data:pnlData,backgroundColor:pnlData.map(function(v){return v>=0?'rgba(34,197,94,.7)':'rgba(239,68,68,.7)'}),borderColor:pnlData.map(function(v){return v>=0?'#22c55e':'#ef4444'}),borderWidth:1,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b8fa3',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmt(v)+' L'}},grid:{color:'rgba(42,45,58,.5)'}}}}});
+  var sv=0,tv=0;STOCKS.forEach(function(h,i){sv+=h.actiuni*h.pret_actual_RON});TURBO.forEach(function(h,i){tv+=h.actiuni*h.pret_actual_RON});
+  tc=new Chart(document.getElementById('tc'),{type:'pie',data:{labels:['Actiuni','Structurate'],datasets:[{data:[sv,tv],backgroundColor:['#6366f1','#f59e0b'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#8b8fa3',font:{size:10},usePointStyle:true}}}}})
+}
+
+function updateCharts(){
+  if(!ac)return;
+  var all=STOCKS.concat(TURBO);
+  var vals=all.map(function(h){return h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
+  ac.data.datasets[0].data=vals;ac.update('none');
+  var pd=all.map(function(h){return vals[all.indexOf(h)]-h.investitie_initiala_RON});
+  pc.data.datasets[0].data=pd;
+  pc.data.datasets[0].backgroundColor=pd.map(function(v){return v>=0?'rgba(34,197,94,.7)':'rgba(239,68,68,.7)'});
+  pc.data.datasets[0].borderColor=pd.map(function(v){return v>=0?'#22c55e':'#ef4444'});
+  pc.update('none');
+  var sv=0,tv=0;STOCKS.forEach(function(h,i){sv+=vals[i]});TURBO.forEach(function(h,i){tv+=vals[STOCKS.length+i]});
+  tc.data.datasets[0].data=[sv,tv];tc.update('none');
+  updateSectorChart();
+  // update KPI
+  var invested=0,total=0;
+  all.forEach(function(h){invested+=h.investitie_initiala_RON;total+=vals[all.indexOf(h)]});
+  var pnlv=total-invested;var pnlPct=invested?pnlv/invested*100:0;
+  document.getElementById('kp').textContent=(pnlv>=0?'+':'')+fmt(pnlv)+' RON';
+  document.getElementById('kp').className='kpi-val '+pnl(pnlv);
+  document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
+  document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
+  document.getElementById('kv').textContent=fmt(total)+' RON';
+  document.getElementById('kvr').textContent=fmt(total,2)+' RON';
+}
+
+// === SECTOR ALLOCATION ===
+var SECTOR_COLORS={'Financial Services':'#3b82f6','Energy':'#f97316','Technology':'#8b5cf6','Industrials':'#14b8a6','Utilities':'#eab308','Structured Products':'#f59e0b','Other':'#6b7280'};
+function initSectorChart(){
+  if(!CD||!CD.companies)return;
+  var sectors={};
+  STOCKS.forEach(function(h){
+    var comp=CD.companies[h.simbol];
+    var sector=(comp&&comp.metrics&&comp.metrics.sector)?comp.metrics.sector:'Other';
+    var val=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON);
+    sectors[sector]=(sectors[sector]||0)+val;
+  });
+  if(TURBO.length){
+    var tv=0;TURBO.forEach(function(h){tv+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
+    if(tv>0)sectors['Structured Products']=tv;
+  }
+  var labels=Object.keys(sectors);
+  var data=labels.map(function(k){return sectors[k]});
+  var colors=labels.map(function(k){return SECTOR_COLORS[k]||'#6b7280'});
+  if(sc)sc.destroy();
+  sc=new Chart(document.getElementById('sc-canvas'),{type:'doughnut',data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#8b8fa3',font:{size:10},padding:8,usePointStyle:true}}},cutout:'55%'}});
+}
+function updateSectorChart(){
+  if(!CD||!CD.companies||!sc)return;
+  var sectors={};
+  STOCKS.forEach(function(h){
+    var comp=CD.companies[h.simbol];
+    var sector=(comp&&comp.metrics&&comp.metrics.sector)?comp.metrics.sector:'Other';
+    var val=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON);
+    sectors[sector]=(sectors[sector]||0)+val;
+  });
+  if(TURBO.length){
+    var tv=0;TURBO.forEach(function(h){tv+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
+    if(tv>0)sectors['Structured Products']=tv;
+  }
+  var labels=Object.keys(sectors);
+  var data=labels.map(function(k){return sectors[k]});
+  var colors=labels.map(function(k){return SECTOR_COLORS[k]||'#6b7280'});
+  sc.data.labels=labels;
+  sc.data.datasets[0].data=data;
+  sc.data.datasets[0].backgroundColor=colors;
+  sc.update('none');
+}
+
+// === COMPANY DATA CACHE ===
+var CD=null; // company data cache
+
+function fmtPct(n){if(n===null||n===undefined||isNaN(n))return'-';return(n>=0?'+':'')+Number(n*100).toFixed(2)+'%'}
+
+function fmtLarge(n){
+  if(n===null||n===undefined||isNaN(n))return'-';
+  var abs=Math.abs(n);
+  if(abs>=1e9)return(n/1e9).toFixed(2)+' mld';
+  if(abs>=1e6)return(n/1e6).toFixed(2)+' mil';
+  if(abs>=1e3)return(n/1e3).toFixed(1)+' K';
+  return Number(n).toLocaleString('ro-RO',{maximumFractionDigits:2});
+}
+
+function fmtPct(n){if(n===null||n===undefined||isNaN(n))return'-';return(n>=0?'+':'')+Number(n*100).toFixed(2)+'%'}
+function fmtPctRaw(n){if(n===null||n===undefined||isNaN(n))return'-';return(n>=0?'+':'')+Number(n).toFixed(2)+'%'}
+
+function showCompany(simbol){
+  if(!CD)return;
+  var company=CD.companies[simbol];
+  if(!company){alert('Nu exista date pentru '+simbol);return}
+
+  // Find portfolio position
+  var pos=null;
+  DATA.holdings.forEach(function(h){if(h.simbol===simbol)pos=h});
+  var price=pos?prices[simbol]||{price:pos.pret_actual_RON,chg:pos.variatie_pret_pct}:null;
+
+  // === HEADER ===
+  document.getElementById('m-sym').textContent=simbol;
+  document.getElementById('m-name').textContent=company.nume;
+  var tagsEl=document.getElementById('m-tags');tagsEl.innerHTML='';
+  if(company.metrics.sector){var t=document.createElement('span');t.className='tag';t.textContent=company.metrics.sector;tagsEl.appendChild(t)}
+  if(company.metrics.industry){var t=document.createElement('span');t.className='tag y';t.textContent=company.metrics.industry;tagsEl.appendChild(t)}
+  if(pos){var t=document.createElement('span');t.className='tag g';t.textContent=pos.tip==='actiuni'?'Actiune':'Structurat';tagsEl.appendChild(t)}
+  if(price){
+    document.getElementById('m-price').textContent=fmt(price.price,4)+' RON';
+    var chgEl=document.getElementById('m-change');
+    chgEl.textContent=(price.chg>=0?'+':'')+fmt(price.chg,2)+'%';
+    chgEl.className=price.chg>=0?'pos':'neg';
+  }else{document.getElementById('m-price').textContent='-';document.getElementById('m-change').textContent='-'}
+
+  // === SUMMARY ===
+  var summaryEl=document.getElementById('m-summary');
+  if(company.metrics.longBusinessSummary){
+    summaryEl.textContent=company.metrics.longBusinessSummary;
+    summaryEl.style.display='block';
+  }else{summaryEl.style.display='none'}
+
+  // === METRICS ===
+  var m=company.metrics;
+  var metricsHtml='';
+  var mItems=[
+    {v:m.marketCap,l:'Market Cap',f:fmtLarge,s:'RON'},
+    {v:m.trailingPE,l:'P/E (TTM)',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
+    {v:m.forwardPE,l:'P/E (forward)',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
+    {v:m.priceToBook,l:'P/B',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
+    {v:m.dividendYield,l:'Div. Yield',f:function(n){return n?n.toFixed(2):'-'},s:'%'},
+    {v:m.dividend,l:'Div. anual',f:function(n){return n?n.toFixed(4):'-'},s:'RON/act'},
+    {v:m.beta,l:'Beta',f:function(n){return n?n.toFixed(2):'-'},s:''},
+    {v:m.profitMargins,l:'Marja profit',f:fmtPct,s:''},
+    {v:m.returnOnEquity,l:'ROE',f:fmtPct,s:''},
+    {v:m.returnOnAssets,l:'ROA',f:fmtPct,s:''},
+    {v:m.revenueGrowth,l:'Crestere venit',f:fmtPct,s:''},
+    {v:m.earningsGrowth,l:'Crestere profit',f:fmtPct,s:''},
+    {v:m.priceToSalesTrailing12Months,l:'P/S',f:function(n){return n?n.toFixed(2):'-'},s:'x'},
+    {v:m.debtToEquity,l:'D/E',f:function(n){return n?n.toFixed(1):'-'},s:''},
+    {v:m.freeCashflow,l:'Free Cash Flow',f:fmtLarge,s:'RON'},
+  ];
+  mItems.forEach(function(item){
+    if(item.v!==null&&item.v!==undefined&&item.v!==0){
+      var val=item.f(item.v);
+      metricsHtml+='<div class="mm-item"><div class="mm-label">'+item.l+'</div><div class="mm-val">'+val+'</div>'+(item.s?'<div class="mm-sub">'+item.s+'</div>':'')+'</div>';
+    }
+  });
+  document.getElementById('m-metrics').innerHTML=metricsHtml;
+
+  // === PRICE HISTORY CHART ===
+  renderPriceChart(company);
+
+  // === FINANCIALS ===
+  var hasFin=company.quarterly&&company.quarterly.length>0;
+  document.getElementById('m-fin-section').style.display=hasFin?'block':'none';
+  if(hasFin){
+    renderQuarterlyCharts(company);
+    renderAnnualCharts(company);
+  }
+
+  // === NEWS ===
+  renderNews(simbol,company.nume);
+
+  // === BUTTONS ===
+  var yahooSym=simbol+'.RO';
+  document.getElementById('m-yahoo-link').href='https://finance.yahoo.com/quote/'+yahooSym;
+  document.getElementById('m-ai-btn').onclick=function(){openAiAnalysis(simbol,company,price)};
+
+  // === SHOW ===
+  document.getElementById('modal').style.display='block';
+}
+
+function renderPriceChart(company){
+  var ph=company.price_history;
+  if(!ph||ph.length<2){
+    document.getElementById('mc-price').parentNode.parentNode.style.display='none';
+    document.getElementById('mc-vol').parentNode.parentNode.style.display='none';
+    return;
+  }
+  document.getElementById('mc-price').parentNode.parentNode.style.display='block';
+  document.getElementById('mc-vol').parentNode.parentNode.style.display='block';
+
+  var labels=ph.map(function(p){var d=new Date(p.date);return d.toLocaleDateString('ro-RO',{day:'2-digit',month:'short'})});
+  var prices=ph.map(function(p){return p.close});
+  var volumes=ph.map(function(p){return p.volume});
+
+  // Price chart
+  if(mcCharts.price)mcCharts.price.destroy();
+  mcCharts.price=new Chart(document.getElementById('mc-price'),{
+    type:'line',data:{labels:labels,datasets:[{
+      label:'Pret RON',data:prices,borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.1)',
+      fill:true,borderWidth:2,pointRadius:0,tension:.1
+    }]},options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmt(ctx.parsed.y,4)+' RON'}}}},
+      scales:{x:{ticks:{color:'#8b8fa3',font:{size:9},maxTicksLimit:15},grid:{display:false}},
+              y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmt(v,2)}},grid:{color:'rgba(42,45,58,.5)'}}}
+    }
+  });
+
+  // Volume chart
+  if(mcCharts.vol)mcCharts.vol.destroy();
+  mcCharts.vol=new Chart(document.getElementById('mc-vol'),{
+    type:'bar',data:{labels:labels,datasets:[{
+      label:'Volum',data:volumes,backgroundColor:'rgba(99,102,241,.3)',borderWidth:0,borderRadius:2
+    }]},options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){return Number(ctx.parsed.y).toLocaleString('ro-RO')+' act.'}}}},
+      scales:{x:{ticks:{color:'#8b8fa3',font:{size:9},maxTicksLimit:15},grid:{display:false}},
+              y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmtLarge(v)}},grid:{color:'rgba(42,45,58,.5)'}}}
+    }
+  });
+}
+
+function renderQuarterlyCharts(company){
+  var q=company.quarterly;
+  if(!q||q.length<2)return;
+  // Sort by date ascending
+  q.sort(function(a,b){return new Date(a.date)-new Date(b.date)});
+
+  var labels=q.map(function(qi){
+    var d=new Date(qi.date);
+    return d.toLocaleDateString('ro-RO',{month:'short',year:'2-digit'});
+  });
+
+  // Revenue
+  var revenues=q.map(function(qi){return qi.items['Total Revenue']||null});
+  if(revenues.some(function(v){return v!==null})){
+    if(mcCharts.rev)mcCharts.rev.destroy();
+    var revData=revenues.map(function(v){return v||0});
+    mcCharts.rev=new Chart(document.getElementById('mc-rev'),{
+      type:'bar',data:{labels:labels,datasets:[{
+        label:'Venituri RON',data:revData,backgroundColor:'rgba(99,102,241,.6)',borderRadius:4
+      }]},options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmtLarge(ctx.parsed.y)+' RON'}}}},
+        scales:{x:{ticks:{color:'#8b8fa3',font:{size:9}},grid:{display:false}},
+                y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmtLarge(v)}},grid:{color:'rgba(42,45,58,.5)'}}}
+      }
+    });
+  }
+
+  // Net Income
+  var netIncomes=q.map(function(qi){return qi.items['Net Income']||null});
+  if(netIncomes.some(function(v){return v!==null})){
+    if(mcCharts.ni)mcCharts.ni.destroy();
+    var niData=netIncomes.map(function(v){return v||0});
+    var niColors=niData.map(function(v){return v>=0?'rgba(34,197,94,.6)':'rgba(239,68,68,.6)'});
+    mcCharts.ni=new Chart(document.getElementById('mc-ni'),{
+      type:'bar',data:{labels:labels,datasets:[{
+        label:'Profit net RON',data:niData,backgroundColor:niColors,borderRadius:4
+      }]},options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmtLarge(ctx.parsed.y)+' RON'}}}},
+        scales:{x:{ticks:{color:'#8b8fa3',font:{size:9}},grid:{display:false}},
+                y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmtLarge(v)}},grid:{color:'rgba(42,45,58,.5)'}}}
+      }
+    });
+  }
+
+  // EPS
+  var epses=q.map(function(qi){return qi.items['Diluted EPS']||null});
+  if(epses.some(function(v){return v!==null})){
+    if(mcCharts.eps)mcCharts.eps.destroy();
+    var epsData=epses.map(function(v){return v||0});
+    var epsColors=epsData.map(function(v){return v>=0?'rgba(34,197,94,.6)':'rgba(239,68,68,.6)'});
+    mcCharts.eps=new Chart(document.getElementById('mc-eps'),{
+      type:'bar',data:{labels:labels,datasets:[{
+        label:'EPS (RON)',data:epsData,backgroundColor:epsColors,borderRadius:4
+      }]},options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmt(ctx.parsed.y,4)+' RON'}}}},
+        scales:{x:{ticks:{color:'#8b8fa3',font:{size:9}},grid:{display:false}},
+                y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmt(v,2)+' RON'}},grid:{color:'rgba(42,45,58,.5)'}}}
+      }
+    });
+  }
+}
+
+function renderAnnualCharts(company){
+  var a=company.annual;
+  if(!a||a.length<2)return;
+  a.sort(function(a,b){return new Date(a.date)-new Date(b.date)});
+  var labels=a.map(function(ai){return new Date(ai.date).getFullYear()});
+
+  // Annual Revenue
+  var revs=a.map(function(ai){return ai.items['Total Revenue']||0});
+  if(revs.some(function(v){return v>0})){
+    if(mcCharts.annRev)mcCharts.annRev.destroy();
+    mcCharts.annRev=new Chart(document.getElementById('mc-ann-rev'),{
+      type:'bar',data:{labels:labels,datasets:[{
+        label:'Venituri anuale RON',data:revs,backgroundColor:'rgba(99,102,241,.6)',borderRadius:4
+      }]},options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return fmtLarge(ctx.parsed.y)+' RON'}}}},
+        scales:{x:{ticks:{color:'#8b8fa3',font:{size:10}},grid:{display:false}},
+                y:{ticks:{color:'#8b8fa3',font:{size:9},callback:function(v){return fmtLarge(v)}},grid:{color:'rgba(42,45,58,.5)'}}}
+      }
+    });
+  }
+}
+
+function renderNews(simbol, nume){
+  var el=document.getElementById('m-news');
+  // Try Google News RSS
+  var q=encodeURIComponent(nume+' BVB actiuni');
+  el.innerHTML='<div style="margin-bottom:8px"><a href="https://news.google.com/search?q='+q+'&hl=ro&gl=RO" target="_blank" class="btn">Cauta pe Google News &rarr;</a></div>'+
+    '<div style="font-size:.8rem;color:var(--dim)">(linkuri externe — Google News)</div>';
+}
+
+function openAiAnalysis(simbol, company, price){
+  var ctx='Analizeaza '+simbol+' ('+company.nume+')';
+  if(company.metrics.sector)ctx+=', sector: '+company.metrics.sector;
+  if(price)ctx+=', pret curent: '+fmt(price.price,4)+' RON ('+(price.chg>=0?'+':'')+fmt(price.chg,2)+'%)';
+  if(company.metrics.marketCap)ctx+=', market cap: '+fmtLarge(company.metrics.marketCap)+' RON';
+  if(company.metrics.trailingPE)ctx+=', P/E: '+company.metrics.trailingPE.toFixed(2);
+  if(company.metrics.dividendYield)ctx+=', dividend yield: '+company.metrics.dividendYield.toFixed(2)+'%';
+  ctx+=', portofoliu personal.';
+
+  // Build a hermes protocol URL that opens a new conversation
+  // The user can copy this or click it
+  var fullPrompt='Da-mi o analiza detaliata despre '+simbol+' ('+company.nume+'). Context: '+ctx;
+  var hermesUrl='/new?q='+encodeURIComponent(fullPrompt);
+
+  // Copy to clipboard and show a toast
+  var ta=document.createElement('textarea');
+  ta.value=fullPrompt;
+  document.body.appendChild(ta);
+  ta.select();
+  try{document.execCommand('copy')}catch(e){}
+  document.body.removeChild(ta);
+
+  alert('Prompt copiat in clipboard!\n\nPaste in Hermes pentru o analiza detaliata despre '+simbol+':\n\n"'+fullPrompt+'"');
+}
+
+// === WATCHLIST ===
+var WATCHLIST = [];
+var WATCHLIST_DATA = {};  // prices from watchlist_data.json
+
+function wlLoad() {
+  fetch('watchlist.json?_=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      WATCHLIST = data.simbols || [];
+      wlRender();
+    })
+    .catch(function() { WATCHLIST = []; wlRender(); });
+  // Also try to load watchlist prices
+  fetch('watchlist_data.json?_=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      WATCHLIST_DATA = data.prices || {};
+      // Merge into prices dict
+      Object.keys(WATCHLIST_DATA).forEach(function(s) {
+        if (WATCHLIST_DATA[s]) prices[s] = WATCHLIST_DATA[s];
+      });
+      wlRender();
+    })
+    .catch(function() {});
+}
+
+function wlSave() {
+  // Server handles persistence. This function kept for reference.
+  console.log('Watchlist saved via server');
+}
+
+function wlAdd(s) {
+  if (!s) return;
+  s = s.trim().toUpperCase();
+  if (WATCHLIST.indexOf(s) >= 0) {
+    alert('Simbolul ' + s + ' este deja în watchlist.');
+    return;
+  }
+  fetch(SVR + '/watchlist', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({symbol: s})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(result) {
+    if (result.success) {
+      WATCHLIST = result.watchlist.simbols || [];
+      wlRender();
+      // Dynamic trigger of history fetching for the new symbol!
+      fetch(SVR + '/api/monitor/sync-history', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({symbol: s})
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        console.log('History sync triggered for ' + s + ':', res.message);
+      })
+      .catch(function(err) {
+        console.warn('Could not sync history for ' + s + ':', err);
+      });
+    } else {
+      alert('Eroare: ' + (result.error || 'necunoscută'));
+    }
+  })
+  .catch(function(err) {
+    alert('Eroare rețea: ' + err);
+  });
+}
+function openSearchModal() {
+  document.getElementById('search-modal').style.display = 'flex';
+  var input = document.getElementById('sm-input');
+  input.value = '';
+  input.focus();
+  document.getElementById('sm-results').innerHTML = '<div style="color:var(--dim); font-size:0.85rem; text-align:center; padding:12px">Scrieți interogarea și apăsați Caută.</div>';
+}
+function closeSearchModal() {
+  document.getElementById('search-modal').style.display = 'none';
+}
+function performSymbolSearch() {
+  var query = document.getElementById('sm-input').value.trim();
+  if (!query) return;
+  var resultsContainer = document.getElementById('sm-results');
+  resultsContainer.innerHTML = '<div style="text-align:center; padding:12px"><div class="spin" style="margin:0 auto 8px; width:20px; height:20px"></div><span style="color:var(--dim); font-size:0.85rem">Se caută...</span></div>';
+  fetch(SVR + '/api/tradeville/request', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      cmd: "SearchSymbol",
+      prm: {
+        search: query
+      }
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res && res.data && res.data.Symbol && res.data.Symbol.length > 0) {
+      var symbols = res.data.Symbol;
+      var names = res.data.Name || [];
+      var html = '';
+      for (var i = 0; i < symbols.length; i++) {
+        var sym = symbols[i];
+        var name = names[i] || 'Nume indisponibil';
+        var safeName = name.replace(/'/g, "\\'");
+        html += '<div class="sm-item" onclick="selectSymbol(\'' + sym + '\')">' +
+          '<span class="sm-sym">' + sym + '</span>' +
+          '<span class="sm-name" title="' + name + '">' + name + '</span>' +
+          '</div>';
+      }
+      resultsContainer.innerHTML = html;
+    } else {
+      resultsContainer.innerHTML = '<div style="color:var(--red); font-size:0.85rem; text-align:center; padding:12px">Niciun simbol găsit.</div>';
+    }
+  })
+  .catch(function(err) {
+    resultsContainer.innerHTML = '<div style="color:var(--red); font-size:0.85rem; text-align:center; padding:12px">Eroare căutare: ' + err + '</div>';
+  });
+}
+function selectSymbol(sym) {
+  closeSearchModal();
+  wlAdd(sym);
+}
+
+function wlDelete(simbol) {
+  fetch(SVR + '/watchlist?symbol=' + encodeURIComponent(simbol), {method: 'DELETE'})
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.success) {
+        WATCHLIST = result.watchlist.simbols || [];
+        wlRender();
+      }
+    })
+    .catch(function() {});
+}
+
+function wlRender() {
+  var tbody = document.getElementById('wl-tbody');
+  if (!tbody) return;
+
+  var html = '';
+  for (var i = 0; i < WATCHLIST.length; i++) {
+    var s = WATCHLIST[i];
+    var p = prices[s];
+    var priceStr = p ? fmt(p.price, 4) : '-';
+    var chgStr = p ? fmtPct(p.changePct) : '-';
+    var chgCls = p && p.changePct >= 0 ? 'pos' : 'neg';
+    html += '<tr data-wl-row-sym="' + s + '" onclick="window.location.href=\'company.html?symbol=' + s + '\'" style="cursor:pointer">' +
+      '<td><a href="company.html?symbol=' + s + '" class="sym" style="text-decoration:none">' + s + '</a></td>' +
+      '<td><strong data-price-sym="' + s + '">' + priceStr + '</strong></td>' +
+      '<td class="' + chgCls + '" data-wl-chg-sym="' + s + '">' + chgStr + '</td>' +
+      '<td><button class="btn" onclick="event.stopPropagation(); wlDelete(\'' + s + '\')" style="padding:2px 8px;font-size:.7rem">&#10005;</button></td>' +
+      '</tr>';
+  }
+  if (!WATCHLIST.length) {
+    html = '<tr><td colspan="4" style="text-align:center;color:var(--dim);padding:16px">Niciun simbol in watchlist. Adauga unul mai sus.</td></tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function recalculateKPIs() {
+  var all=STOCKS.concat(TURBO);
+  var invested=0,total=0;
+  all.forEach(function(h){invested+=h.investitie_initiala_RON;total+=h.actiuni*(prices[h.simbol]?prices[h.simbol].price:h.pret_actual_RON)});
+  var pnlv=total-invested;
+  var pnlPct=invested?pnlv/invested*100:0;
+  document.getElementById('kv').textContent=fmt(total,2)+' RON';
+  document.getElementById('ki').textContent=fmt(invested)+' RON';
+  document.getElementById('kp').textContent=(pnlv>=0?'+':'')+fmt(pnlv)+' RON';
+  document.getElementById('kp').className='kpi-val '+pnl(pnlv);
+  document.getElementById('kpp').textContent=(pnlPct>=0?'+':'')+fmt(pnlPct)+'%';
+  document.getElementById('kpp').className='kpi-sub '+pnl(pnlPct);
+  var comm = total * EST_SALE_COMMISSION_RATE;
+  var netPnl = pnlv - comm;
+  var netPct = invested ? netPnl / invested * 100 : 0;
+  document.getElementById('kpes').textContent = 'Net est: ' + (netPnl >= 0 ? '+' : '') + fmt(netPnl) + ' RON (' + (netPct >= 0 ? '+' : '') + fmt(netPct) + '%)';
+  var rpnl = DATA.metadata ? DATA.metadata.realized_pnl : 0;
+  var divs = DATA.metadata ? DATA.metadata.dividends : 0;
+  var realPnl = pnlv + rpnl + divs;
+  var totalBuzunar = invested + Math.abs(rpnl); // approximation if we don't have historical invested capital
+  var realPct = totalBuzunar ? realPnl / totalBuzunar * 100 : 0;
+  var rpel = document.getElementById('krp');
+  if (rpel) { rpel.textContent = (realPnl >= 0 ? '+' : '') + fmt(realPnl) + ' RON'; rpel.className = 'kpi-val ' + pnl(realPnl); }
+  var krprEl = document.getElementById('krpr');
+  if (krprEl) { krprEl.textContent = 'return: ' + (realPct >= 0 ? '+' : '') + fmt(realPct) + '%'; }
+}
+
+function updateDOMForSymbol(sym, price, chg) {
+  var row = document.querySelector('[data-row-sym="' + sym + '"]');
+  if (row) {
+    var priceEl = row.querySelector('[data-price-sym="' + sym + '"]');
+    if (priceEl) priceEl.textContent = fmt(price, 4);
+    var chgEl = row.querySelector('[data-chg-sym="' + sym + '"]');
+    if (chgEl) {
+      chgEl.className = pnl(chg);
+      chgEl.textContent = (chg >= 0 ? '+' : '') + fmt(chg) + '%';
+    }
+    var holding = STOCKS.concat(TURBO).find(function(h) { return h.simbol === sym; });
+    if (holding) {
+      var newVal = holding.actiuni * price;
+      var valEl = row.querySelector('[data-val-sym="' + sym + '"]');
+      if (valEl) valEl.textContent = fmt(newVal);
+      var pl = newVal - holding.investitie_initiala_RON;
+      var plp = holding.investitie_initiala_RON ? pl / holding.investitie_initiala_RON * 100 : 0;
+      var plEl = row.querySelector('[data-pl-sym="' + sym + '"]');
+      var plpEl = row.querySelector('[data-plp-sym="' + sym + '"]');
+      if (plEl) {
+        plEl.className = pnl(pl);
+        plEl.innerHTML = '<strong>' + (pl >= 0 ? '+' : '') + fmt(pl) + '</strong>';
+      }
+      if (plpEl) {
+        plpEl.className = pnl(plp);
+        plpEl.textContent = (plp >= 0 ? '+' : '') + fmt(plp) + '%';
+      }
+    }
+  }
+  var wlRow = document.querySelector('[data-wl-row-sym="' + sym + '"]');
+  if (wlRow) {
+    var wlPriceEl = wlRow.querySelector('[data-price-sym="' + sym + '"]');
+    if (wlPriceEl) wlPriceEl.textContent = fmt(price, 4);
+    var wlChgEl = wlRow.querySelector('[data-wl-chg-sym="' + sym + '"]');
+    if (wlChgEl) {
+      wlChgEl.className = chg >= 0 ? 'pos' : 'neg';
+      wlChgEl.textContent = (chg >= 0 ? '+' : '') + fmt(chg) + '%';
+    }
+  }
+}
+var highlightTimers = {};
+function highlightPrice(sym, direction) {
+  var els = document.querySelectorAll('[data-price-sym="' + sym + '"]');
+  if (highlightTimers[sym]) {
+    clearTimeout(highlightTimers[sym]);
+    highlightTimers[sym] = null;
+  }
+  els.forEach(function(el) {
+    el.classList.remove('flash-green', 'flash-red');
+    void el.offsetWidth;
+    var cls = direction === 'up' ? 'flash-green' : 'flash-red';
+    el.classList.add(cls);
+  });
+  highlightTimers[sym] = setTimeout(function() {
+    els.forEach(function(el) {
+      el.classList.remove('flash-green', 'flash-red');
+    });
+    highlightTimers[sym] = null;
+  }, 3000);
+}
+
+// === BOOT ===
+(function(){
+  fetch('/api/portfolio?_=' + Date.now())
+    .then(function(r){return r.json()})
+    .then(function(data){
+      DATA=data;
+      STOCKS=DATA.holdings.filter(function(h){return h.tip==='actiuni'});
+      TURBO=DATA.holdings.filter(function(h){return h.tip!=='actiuni'});
+      STOCKS_ORIG=STOCKS.slice();TURBO_ORIG=TURBO.slice();
+      initCharts();ra();
+      // Initialize prices from portfolio data
+      DATA.holdings.forEach(function(h){
+        if (!prices[h.simbol]) {
+          prices[h.simbol] = { price: h.pret_actual_RON, chg: h.variatie_pret_pct || 0, changePct: (h.variatie_pret_pct || 0) / 100 };
+        }
+      });
+    });
+  // Load company financial data
+  fetch('company_data.json?_=' + Date.now())
+    .then(function(r){return r.json()})
+    .then(function(data){CD=data;initSectorChart();ra()})
+    .catch(function(){console.log('company_data.json not available')});
+  // Load transactions
+  fetch('/api/portfolio/transactions?_=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var tbody = document.getElementById('tx-tbody');
+      if (data.transactions && data.transactions.length > 0) {
+        var html = '';
+        data.transactions.forEach(function(tx) {
+          var d = new Date(tx.date.replace('Z', '+00:00')).toLocaleDateString('ro-RO');
+          var typeColor = tx.op_type.toLowerCase() === 'cumparare' ? 'var(--blue)' : (tx.op_type.toLowerCase() === 'vanzare' ? 'var(--red)' : 'var(--text)');
+          var symbolUrl = tx.symbol ? 'company.html?symbol=' + tx.symbol : '#';
+          html += '<tr onclick="window.location.href=\'' + symbolUrl + '\'" style="cursor:pointer">' +
+            '<td>' + d + '</td>' +
+            '<td style="color:' + typeColor + '; font-weight:600">' + tx.op_type + '</td>' +
+            '<td><a href="company.html?symbol=' + (tx.symbol || '') + '" class="sym" style="text-decoration:none">' + (tx.symbol || '-') + '</a></td>' +
+            '<td style="text-align:right">' + (tx.quantity ? fmt(tx.quantity) : '-') + '</td>' +
+            '<td style="text-align:right">' + (tx.price ? fmt(tx.price, 4) : '-') + '</td>' +
+            '<td style="text-align:right">' + (tx.amount ? fmt(Math.abs(tx.amount), 2) + ' RON' : '-') + '</td>' +
+          '</tr>';
+        });
+        tbody.innerHTML = html;
+      } else {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:16px">Nu există tranzacții recente.</td></tr>';
+      }
+    })
+    .catch(function(e) { console.error('Failed to load transactions', e); });
+
+  // Load watchlist
+  wlLoad();
+  // Live price streaming via SSE
+  var es = new EventSource('/api/monitor/events');
+  es.addEventListener('price', function(e) {
+    try {
+      var tick = JSON.parse(e.data);
+      var sym = tick.sim;
+      if (sym && tick.pret) {
+        var oldPrice = prices[sym] ? prices[sym].price : null;
+        var newPrice = tick.pret;
+        var chg = tick.ref ? ((tick.pret - tick.ref) / tick.ref * 100) : 0;
+        prices[sym] = { price: newPrice, chg: chg, changePct: chg / 100 };
+        updateDOMForSymbol(sym, newPrice, chg);
+        recalculateKPIs();
+        ul();
+        if (oldPrice !== newPrice) {
+          highlightPrice(sym, newPrice > oldPrice ? 'up' : 'down');
+        }
+      }
+    } catch(err) {
+      console.error('Error parsing SSE price tick:', err);
+    }
+  });
+  window.addEventListener('beforeunload', function() { if (es) es.close(); });
+  ums();ul();
+  
+  // Attach sorting listeners safely
+  document.querySelectorAll('thead').forEach(function(thead){
+    thead.addEventListener('click',_hdrClick);
+  });
+  setInterval(ums,60000);
+})();
+</script>
+<!-- Search Overlay Modal -->
+<div id="search-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center" onclick="if(event.target===this)closeSearchModal()">
+  <div style="background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px; width:450px; display:flex; flex-direction:column; gap:16px; position:relative">
+    <button onclick="closeSearchModal()" style="position:absolute; top:12px; right:12px; background:none; border:none; color:var(--dim); font-size:1.2rem; cursor:pointer">&#10005;</button>
+    <h3 style="margin:0; font-size:1.1rem; color:var(--text)">Căutare Simbol BVB</h3>
+    <div style="display:flex; gap:8px">
+      <input type="text" id="sm-input" class="srch" style="flex:1" placeholder="Scrie simbol sau companie (ex: electric)..." onkeydown="if(event.key==='Enter')performSymbolSearch()">
+      <button class="btn" onclick="performSymbolSearch()">Caută</button>
+    </div>
+    <div id="sm-results" style="max-height:250px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-top:8px">
+      <div style="color:var(--dim); font-size:0.85rem; text-align:center; padding:12px">Scrieți interogarea și apăsați Caută.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

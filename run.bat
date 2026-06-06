@@ -17,7 +17,7 @@ if not exist ".venv" (
     echo [setup] Activating environment and installing dependencies...
     call .venv\Scripts\activate.bat
     python -m pip install --upgrade pip
-    pip install -r server/requirements.txt
+    pip install -r back-end/requirements.txt
 ) else (
     echo [setup] Activating virtual environment...
     call .venv\Scripts\activate.bat
@@ -34,6 +34,6 @@ echo.
 echo [log] Backend API logs will print below. Press Ctrl+C to stop.
 echo.
 
-python server/server.py
+python back-end/server.py
 
 endlocal

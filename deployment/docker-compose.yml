@@ -1,0 +1,84 @@
+services:
+  # ==========================================
+  # SECTION 1: AI AGENTS (HERMES)
+  # ==========================================
+
+  # Main Agent (Port 9119)
+  hermes-main:
+    image: nousresearch/hermes-agent
+    container_name: hermes-main
+    restart: unless-stopped
+    network_mode: host
+    tty: true
+    stdin_open: true
+    command: ["gateway", "run"]
+    volumes:
+      - /home/gal101/.hermes:/opt/data
+      - /home/gal101/hermes-financial-dashboard:/financial-dashboard
+    environment:
+      - HERMES_UID=${HERMES_UID}
+      - HERMES_GID=${HERMES_GID}
+      - HERMES_DASHBOARD=1
+      - HERMES_DASHBOARD_HOST=0.0.0.0
+      - HERMES_DASHBOARD_PORT=9119
+      - HERMES_DASHBOARD_TUI=1
+      - HERMES_DASHBOARD_INSECURE=1
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - USER_PERSONAL_EMAIL=${USER_PERSONAL_EMAIL}
+
+  # Madalina's Agent (Port 9120)
+  hermes-madalina:
+    image: nousresearch/hermes-agent
+    container_name: hermes-madalina
+    restart: unless-stopped
+    network_mode: host
+    tty: true
+    stdin_open: true
+    command: ["gateway", "run"]
+    volumes:
+      - /home/gal101/.hermes-madalina:/opt/data
+      - /home/gal101/hermes-financial-dashboard:/financial-dashboard
+    environment:
+      - HERMES_UID=${HERMES_UID}
+      - HERMES_GID=${HERMES_GID}
+      - HERMES_DASHBOARD=1
+      - HERMES_DASHBOARD_HOST=0.0.0.0
+      - HERMES_DASHBOARD_PORT=9120
+      - HERMES_DASHBOARD_TUI=1
+      - HERMES_DASHBOARD_INSECURE=1
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+      # Overriding the email directly for this agent
+      - USER_PERSONAL_EMAIL=anamadag@yahoo.com
+
+  # ==========================================
+  # SECTION 2: FINANCIAL DASHBOARD INFRASTRUCTURE
+  # ==========================================
+
+  # Nginx Reverse Proxy (Port 80 on host)
+  nginx-server:
+    image: nginx:alpine
+    container_name: nginx-server
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /home/gal101/hermes-server/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  # Python Backend for the Financial Dashboard
+  financial-dashboard:
+    image: python:3.11-slim
+    container_name: financial-dashboard
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /home/gal101/hermes-financial-dashboard:/financial-dashboard
+    command: >
+      sh -c "pip install -r /financial-dashboard/back-end/requirements.txt &&
+             python3 /financial-dashboard/back-end/server.py"

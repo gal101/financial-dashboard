@@ -1,0 +1,8 @@
+{
+  "PE": {
+    "ignore_dividend": true
+  },
+  "SAFE": {
+    "ignore_dividend": true
+  }
+}

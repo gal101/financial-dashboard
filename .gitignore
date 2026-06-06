@@ -5,20 +5,26 @@
 #   - valoare investita
 #   - profit/pierdere
 #   - istoric tranzactii
-bvb_portfolio.json
-bvb_portfolio.backup.json
+data/bvb_portfolio.json
+data/bvb_portfolio.backup.json
+
+# Private user database
+data/user_data.db
+data/user_data.db-wal
+data/user_data.db-shm
 
 # Runtime artifacts
-watchlist_data.json
-pending_scrapes.json
-scrape_results/
+data/watchlist_data.json
+data/pending_scrapes.json
+data/scrape_results/
 
 # SQLite database (commit-able — contains curated financial data)
 financial_data.db
-db_backups/
+data/db_backups/
 
 # Server runtime
 server.log
+ignored_messages.log
 
 # Python
 __pycache__/
@@ -27,7 +33,7 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
-server/**/__pycache__/
+back-end/**/__pycache__/
 
 # Sistem
 .DS_Store

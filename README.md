@@ -117,51 +117,50 @@ python setup_credentials.py
 ### 3. Install dependencies
 
 ```bash
-pip install -r server/requirements.txt
+pip install -r back-end/requirements.txt
 ```
 
 ### 4. Start the server
 ```bash
-python server/server.py
+python back-end/server.py
 ```
 Open `http://localhost:8089/dashboard.html`.
 
 ### 5. Fetch initial data (optional — runs automatically on startup)
 
 ```bash
-python portfolio_updater.py      # fetches live prices → SQLite + JSON
-python company_fetcher.py        # fetches OHLCV history + metadata → price_history
+python back-end/portfolio_updater.py      # fetches live prices → SQLite + JSON
+python back-end/company_fetcher.py        # fetches OHLCV history + metadata → price_history
 ```
 
 ## File Overview
 
 | File                         | Purpose                                           | Committed? |
 |------------------------------|---------------------------------------------------|------------|
-| `dashboard.html`             | Main web dashboard (HTML/CSS/JS + Chart.js)       | Yes        |
-| `company.html`               | Company Profile page (click on symbol)            | Yes        |
-| `monitor.html`               | Server Monitor UI (live logs, tasks status)       | Yes        |
-| `company_profile.js`         | Chart rendering, metrics display, calendar        | Yes        |
-| `style.css`                  | Shared dark theme CSS                             | Yes        |
-| `portfolio_updater.py`       | Fetches live prices + syncs portfolio from Tradeville | Yes    |
-| `company_fetcher.py`         | Fetches 5Y OHLCV history + company metadata       | Yes        |
-| `metrics_calculator.py`      | Calculates trailingPE, forwardPE, EPS from raw    | Yes        |
-| `db.py`                      | SQLite data access layer (schema, queries, export)| Yes        |
-| `json_sanitizer.py`          | safe_json_dumps() — prevents NaN in JSON          | Yes        |
-| `server/server.py`           | Python HTTP API (:8089) + Tradeville proxy        | Yes        |
-| `server/shared/tradeville_streamer.py` | WebSocket gateway to Tradeville API    | Yes        |
-| `server/shared/tradeville_client.py`  | HTTP client helper for scripts             | Yes        |
-| `server/shared/activity_sync.py`     | Transaction history sync                   | Yes        |
-| `setup_credentials.py`       | Interactive credential setup CLI                  | Yes        |
-| `test_tradeville.py`         | Integration test for the proxy + gateway          | Yes        |
-| `bvb_dashboard.db`           | SQLite database (curated financial data)          | Yes        |
-| `company_data.json`          | Derived JSON export (regenerated from DB)         | Yes        |
-| `bvb_portfolio.json`         | Your actual holdings (prices, P/L, shares)        | **No**     |
-| `bvb_portfolio.example.json` | Anonymized template for new setups                | Yes        |
-| `PRD.md`                     | Product requirements document                     | Yes        |
-| `FEATURES.md`                | Detailed feature roadmap & planning doc           | Yes        |
-| `CONTEXT.md`                 | Glossary of financial terms and formulas          | Yes        |
-| `HANDOFF.md`                 | Session handoff notes                             | Yes        |
-| `README.md`                  | This file                                         | Yes        |
+| `front-end/dashboard.html`    | Main web dashboard (HTML/CSS/JS + Chart.js)       | Yes        |
+| `front-end/company.html`      | Company Profile page (click on symbol)            | Yes        |
+| `front-end/monitor.html`      | Server Monitor UI (live logs, tasks status)       | Yes        |
+| `front-end/company_profile.js`| Chart rendering, metrics display, calendar        | Yes        |
+| `front-end/style.css`         | Shared dark theme CSS                             | Yes        |
+| `back-end/portfolio_updater.py`| Fetches live prices + syncs portfolio from Tradeville | Yes   |
+| `back-end/company_fetcher.py` | Fetches 5Y OHLCV history + company metadata       | Yes        |
+| `back-end/metrics_calculator.py`| Calculates trailingPE, forwardPE, EPS from raw  | Yes        |
+| `back-end/db.py`             | SQLite data access layer (schema, queries, export)| Yes        |
+| `back-end/json_sanitizer.py`  | safe_json_dumps() — prevents NaN in JSON          | Yes        |
+| `back-end/server.py`          | Python HTTP API (:8089) + Tradeville proxy        | Yes        |
+| `back-end/shared/tradeville_streamer.py` | WebSocket gateway to Tradeville API   | Yes        |
+| `back-end/shared/tradeville_client.py`  | HTTP client helper for scripts          | Yes        |
+| `back-end/shared/activity_sync.py`     | Transaction history sync                | Yes        |
+| `back-end/setup_credentials.py` | Interactive credential setup CLI                | Yes        |
+| `tests/test_tradeville.py`    | Integration test for the proxy + gateway          | Yes        |
+| `data/bvb_dashboard.db`       | SQLite database (curated financial data)          | Yes        |
+| `data/company_data.json`      | Derived JSON export (regenerated from DB)         | Yes        |
+| `data/bvb_portfolio.json`     | Your actual holdings (prices, P/L, shares)        | **No**     |
+| `data/bvb_portfolio.example.json` | Anonymized template for new setups              | Yes        |
+| `docs/NEW-PRD.md`             | Product requirements document                     | Yes        |
+| `docs/FEATURES.md`            | Detailed feature roadmap & planning doc           | Yes        |
+| `docs/CONTEXT.md`             | Glossary of financial terms and formulas          | Yes        |
+| `README.md`                   | This file                                         | Yes        |
 
 ## Supported Tickers
 
